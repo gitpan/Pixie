@@ -54,9 +54,11 @@ sub UNIVERSAL::px_is_managed {
 
 
 package main;
+my @specs = qw/memory bdb:objects.bdb/;
+push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if $ENV{PIXIE_TEST_STORES};
 
 my @testers;
-foreach my $storage ( qw/memory bdb:objects.bdb dbi:mysql:dbname=test/ ) {
+foreach my $storage ( @specs ) {
   eval {
     my $tester = SafeOIDTest->new( $storage );
     push @testers, $tester if $tester;

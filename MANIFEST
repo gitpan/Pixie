@@ -2,7 +2,9 @@
 ASSUMPTIONS
 AUTHORS
 CHANGES
+INSTALL
 Info/.cvsignore
+#Info/Info.bs
 Info/Info.pm
 Info/Info.xs
 Info/Makefile.PL
@@ -11,6 +13,7 @@ MANIFEST.SKIP
 Makefile.PL
 README
 TODO
+deploy_pixie.pl
 lib/Pixie.pm
 lib/Pixie/Complicity.pm
 lib/Pixie/FinalMethods.pm
@@ -21,6 +24,7 @@ lib/Pixie/LockStrat/Null.pm
 lib/Pixie/LockStrat/ReadOnly.pm
 lib/Pixie/Name.pm
 lib/Pixie/Object.pm
+lib/Pixie/ObjectGraph.pm
 lib/Pixie/ObjectInfo.pm
 lib/Pixie/Proxy.pm
 lib/Pixie/Store.pm
@@ -28,6 +32,8 @@ lib/Pixie/Store/BerkeleyDB.pm
 lib/Pixie/Store/DBI.pm
 lib/Pixie/Store/DBI/Default.pm
 lib/Pixie/Store/DBI/Mysql.pm
+lib/Pixie/Store/DBI/Pg.pm
+lib/Pixie/Store/DBI/SQLite.pm
 lib/Pixie/Store/Memory.pm
 t/00simple.t
 t/01memory.t
@@ -45,6 +51,10 @@ t/11dbistore.t
 t/12complicity.t
 t/13concurrency.t
 t/14magicinfo.t
+t/15rootset.t
+t/16workingset.t
+t/98compile.t
+t/99pod.t
 t/Springfield.pm
 t/Sunnydale.pm
 test.sql

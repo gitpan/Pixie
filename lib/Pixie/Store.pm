@@ -1,7 +1,7 @@
 package Pixie::Store;
 
 use strict;
-our $VERSION = '2.04';
+our $VERSION='2.05';
 my %typemap = ( memory => 'Pixie::Store::Memory',
                 bdb => 'Pixie::Store::BerkeleyDB',
                 dbi => 'Pixie::Store::DBI', );
@@ -19,11 +19,66 @@ sub connect {
   $typemap{$type}->connect($path,@_);
 }
 
+sub object_graph_for {
+  my $self = shift;
+  my $pixie = shift;
+
+  my $graph = $pixie->get_object_named('PIXIE::Node Graph');
+  unless ($graph) {
+    $graph = Pixie::ObjectGraph->new;
+    $pixie->bind_name('PIXIE::Node Graph' => $graph);
+  }
+  return $graph;
+}
+
+
+sub remove_from_store {
+  my $self = shift;
+  my($oid) = @_;
+
+  $self->remove_from_rootset($oid)
+       ->_delete($oid);
+}
+
 # Low level locking
 
 sub lock_object_for {}
 
 sub unlock_object_for {}
+
+sub add_to_rootset {
+  my $self = shift;
+  my $thing = shift;
+  $self->_add_to_rootset($thing) unless $self->is_hidden($thing);
+}
+
+sub is_hidden {
+  my $self = shift;
+  my $thing = shift;
+
+  $thing->PIXIE::oid =~ /^<NAME:PIXIE::/;
+}
+
+sub _add_to_rootset { $_[0]->subclass_responsibility(@_) }
+
+sub remove_from_rootset {
+  $_[0]->subclass_responsibility($_[0]);
+}
+
+sub rootset {
+  $_[0]->subclass_responsibility;
+}
+
+sub lock     { $_[0]->subclass_responsibility(@_) }
+sub unlock   { $_[0]->subclass_responsibility(@_) }
+sub rollback { $_[0]->subclass_responsibility(@_) }
+
+sub subclass_responsibility {
+  my $self = shift;
+  require Carp;
+  Carp::carp( (caller(1))[3], " not implemented for ", ref($self) );
+  return wantarray ? @_ : $_[-1];
+}
 
 1;
 

@@ -2,7 +2,7 @@ package Pixie::ObjectInfo;
 
 use strict;
 
-our $VERSION = '2.04';
+our $VERSION='2.05';
 
 use Scalar::Util qw/weaken/;
 

@@ -9,7 +9,7 @@ use base 'Pixie::Object';
 use Pixie::ObjectInfo;
 use Carp;
 
-our $VERSION = '2.04';
+our $VERSION='2.05';
 
 use Scalar::Util qw/blessed weaken isweak/;
 

@@ -1,0 +1,26 @@
+Guess what, you can install Pixie just like any other well behaved
+CPAN module using the standard incantations:
+
+   $ perl Makefile.PL
+   $ make
+   $ make test
+   $ sudo make install
+
+But, that doesn't get everything tested. To that end we offer an
+environment variable, allowing you to specify which database backends
+you want to test against. Just set PIXIE_TEST_STORES to be a space
+seperated list of DBI specs. (NB: we assume these test databases can
+be accessed with no passwords.)
+
+You'll need to set up the initial tables that Pixie needs though, to
+do this, after you've done the 'make', do
+
+   $ perl -Mblib ./deploy.pl DBISPEC USER PASS
+
+Which will set up an appropriate set of tables. Note that you can
+specify a username and password here, in case you need extra
+permissions to create tables. This will create 3 tables: px_object,
+px_lock_info and px_rootset (Pixie defaults to using the px_ prefix
+for all sorts of things.)
+
+Once that's done, you're ready to roll.

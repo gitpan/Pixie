@@ -2,7 +2,7 @@ package Pixie::Object;
 
 use strict;
 
-our $VERSION = '2.04';
+our $VERSION='2.05';
 
 sub new {
   my $proto = shift;

@@ -92,8 +92,11 @@ sub test_03 : Test(4) {
 
 package main;
 
-my @testers = grep defined, map DeepTest->new($_),
-		      qw/memory dbi:mysql:dbname=test bdb:objects.bdb/;
+my @specs = qw/memory bdb:objects.bdb/;
+push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if $ENV{PIXIE_TEST_STORES};
+
+my @testers = grep defined,  map DeepTest->new($_), @specs;
+
 Test::Class->runtests(@testers);
 
 

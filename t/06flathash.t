@@ -7,7 +7,7 @@ use Springfield;
 
 use Pixie;
 
-use Test::More tests => 42;
+use Test::More;
 
 my $store;
 
@@ -22,7 +22,13 @@ sub leaktest {
 
 my $homer_oid;
 
-for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
+my @specs = qw/memory bdb:objects.bdb/;
+push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if $ENV{PIXIE_TEST_STORES};
+
+plan tests => 14 * @specs;
+
+
+for my $store_spec (@specs) {
   $store = eval { Pixie->new->connect($store_spec) };
 
   SKIP: {

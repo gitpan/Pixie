@@ -3,10 +3,12 @@ package Pixie::Store::DBI::Default;
 use strict;
 use Carp;
 
-our $VERSION = '2.04';
+our $VERSION='2.05';
 
 use DBIx::AnyDBD;
 use Storable qw/nfreeze thaw/;
+
+use base 'Pixie::Store';
 
 sub _raw_connect {
   my $class = shift;
@@ -17,13 +19,14 @@ sub _raw_connect {
   my $dbi_args = {AutoCommit => 1, PrintError => 0, RaiseError => 1,};
 
   my $self = DBIx::AnyDBD->connect($dsn, $named_args{user}, $named_args{pass},
-				   $dbi_args,
+                                   $dbi_args,
                                    'Pixie::Store::DBI');
   return unless $self;
   $self->{'reconnector'} = sub { DBI->connect($dsn,  $named_args{user}, $named_args{pass},
-					      $dbi_args) };
-  $self->set_object_table($named_args{object_table} || 'object');
-  $self->set_lock_table($named_args{lock_table} || 'lock_info');
+                                              $dbi_args) };
+  $self->set_object_table($named_args{object_table}   || 'px_object');
+  $self->set_lock_table($named_args{lock_table}       || 'px_lock_info');
+  $self->set_rootset_table($named_args{rootset_table} || 'px_rootset');
   return $self;
 }
 
@@ -46,24 +49,33 @@ sub _do_deployment {
   my $self = shift;
   $self->create_object_table
        ->create_lock_table
-       ->create_table_index;
+       ->create_table_index
+       ->create_rootset_table
 }
 
 sub create_object_table {
   my $self = shift;
   $self->{dbh}->do(qq{CREATE TABLE $self->{object_table}
-		        (oid varchar(255) NOT NULL,
-		         flat_obj blob NOT NULL,
- 		         PRIMARY KEY (oid))});
+                        (px_oid varchar(255) NOT NULL,
+                         px_flat_obj blob NOT NULL,
+                         PRIMARY KEY (px_oid))});
   return $self;
 }
 
 sub create_lock_table {
   my $self = shift;
   $self->{dbh}->do(qq{CREATE TABLE $self->{lock_table}
-		      (oid varchar(255) NOT NULL,
-		       locker varchar(255) NOT NULL,
-		       PRIMARY KEY (oid))});
+                      (px_oid varchar(255) NOT NULL,
+                       px_locker varchar(255) NOT NULL,
+                       PRIMARY KEY (px_oid))});
+  return $self;
+}
+
+sub create_rootset_table {
+  my $self = shift;
+  $self->{dbh}->do(qq{CREATE TABLE $self->{rootset_table}
+                      (px_oid varchar(255) NOT NULL,
+                       PRIMARY KEY (px_oid))});
   return $self;
 }
 
@@ -93,11 +105,22 @@ sub lock_table {
   $self->{lock_table};
 }
 
+sub set_rootset_table {
+  my $self = shift;
+  $self->{rootset_table} = shift;
+  return $self;
+}
+
+sub rootset_table {
+  my $self = shift;
+  $self->{rootset_table};
+}
+
 sub verify_connection {
   my $self = shift;
-  my $sth = eval { $self->prepare_execute(qq{SELECT oid, flat_obj FROM $self->{object_table} LIMIT 1}) };
-  die $@ if $@;
-  $sth->finish;
+  my $sth = $self->prepare_execute(qq{SELECT px_oid, px_flat_obj
+				      FROM $self->{object_table} LIMIT 1});
+  $sth->finish if $sth;
   return $self;
 }
 
@@ -128,8 +151,8 @@ sub get_dbh {
 
 sub clear {
   my $self = shift;
-  $self->prepare_execute(q{DELETE FROM } . $self->{object_table});
-  $self->prepare_execute(q{DELETE FROM } . $self->{lock_table});
+  $self->prepare_execute(qq{DELETE FROM $_}) for map $self->$_(),
+    qw/object_table lock_table rootset_table/;
   return $self;
 }
 
@@ -139,13 +162,15 @@ sub store_at {
   my($oid, $obj, $strategy) = @_;
 
   $self->begin_transaction;
-  my $did_lock = $strategy->pre_store;
-  $self->prepare_execute(q{DELETE FROM } . $self->{object_table} . q{ WHERE oid = ?},
+  my $did_lock = $strategy->pre_store($oid, Pixie->get_the_current_pixie);
+  $self->prepare_execute(qq{ DELETE FROM @{[ $self->object_table ]}
+                             WHERE px_oid = ? },
                          $oid);
-  $self->prepare_execute(q{INSERT INTO } . $self->{object_table} . q{ ( oid, flat_obj )
-                           VALUES ( ?, ? )},
+  $self->prepare_execute(qq{ INSERT INTO @{[ $self->object_table ]}
+                             (px_oid, px_flat_obj)
+                             VALUES ( ?, ? )},
                          $oid, nfreeze $obj);
-  $strategy->post_store($did_lock);
+  $strategy->post_store($did_lock, Pixie->get_the_current_pixie);
   $self->commit;
   return($oid, $obj);
 }
@@ -154,8 +179,7 @@ sub get_object_at {
   my $self = shift;
   my($oid) = @_;
 
-  my $sth = $self->prepare_execute(q{SELECT flat_obj FROM } .$self->{object_table} . q{
-                           WHERE oid = ?},
+  my $sth = $self->prepare_execute(q{SELECT px_flat_obj FROM } .$self->{object_table} . q{ WHERE px_oid = ? },
                          $oid);
   my $rows = $sth->fetchall_arrayref();
   $sth->finish;
@@ -171,12 +195,13 @@ sub get_object_at {
   }
 }
 
-sub delete {
+sub _delete {
   my $self = shift;
   my($oid) = shift;
 
-  $self->prepare_execute(q{DELETE FROM } . $self->object_table . q{ WHERE oid = ?},
-                         $oid)->rows;
+  $self->prepare_execute(q{DELETE FROM } .
+                         $self->object_table .
+                         q{ WHERE px_oid = ?}, $oid)->rows;
 }
 
 sub prepare_execute {
@@ -189,7 +214,8 @@ sub prepare_execute {
     my @param_v = ( ref($param_v) eq 'ARRAY' ) ? @$param_v : $param_v;
     $sth->bind_param( $param_no+1, @param_v);
   }
-  $sth->execute;
+  eval { $sth->execute };
+  Carp::confess $@ if $@;
   return $sth;
 }
 
@@ -224,9 +250,6 @@ sub commit {
 
 sub lock {
   my $self = shift;
-  die "Something very strange is happening, you already have an active transaction"
-      if $self->{locked};
-  $self->{locked}++;
   $self->begin_transaction;
   return $self;
 }
@@ -234,26 +257,82 @@ sub lock {
 sub unlock {
   my $self = shift;
   $self->commit;
-  $self->{locked} = 0;
   return $self;
 }
 
 sub rollback {
   my $self = shift;
   $self->rollback_db;
-  $self->{locked} = 0;
   return $self;
+}
+
+sub remove_from_rootset {
+  my $self = shift;
+  my($oid) = @_;
+
+  $self->prepare_execute(qq{DELETE FROM @{[ $self->rootset_table ]}
+                            WHERE px_oid = ?},
+                         $oid);
+  return $self;
+}
+
+sub _add_to_rootset {
+  my $self = shift;
+  my($thing) = @_;
+  $self->begin_transaction;
+  $self->prepare_execute(qq{DELETE FROM @{[ $self->rootset_table ]}
+                            WHERE px_oid = ?},
+                         $thing->PIXIE::oid);
+  $self->prepare_execute(qq{INSERT INTO @{[ $self->rootset_table ]} (px_oid)
+                            VALUES ( ? )},
+                         $thing->PIXIE::oid);
+  $self->commit;
+  return $self;
+}
+
+
+sub rootset {
+  my $self = shift;
+  my $rows = $self->selectall_arrayref(qq{SELECT px_oid FROM @{[$self->rootset_table]}
+					  WHERE px_oid NOT LIKE '<NAME:PIXIE::\%'}) ;
+  my @ary = map $_->[0], @$rows;
+  return wantarray ? @ary : \@ary;
+}
+
+sub working_set_for {
+  my $self = shift;
+  my $p = shift;
+  my $rows = $self->selectall_arrayref(
+    qq{SELECT px_oid FROM @{[$self->object_table]}
+       WHERE px_oid NOT LIKE '<NAME:PIXIE::\%' AND
+       NOT(px_oid = '@{[$self->object_graph_for($p)->PIXIE::oid]}')});
+
+  my @ary = map $_->[0], @$rows;
+  return wantarray ? @ary : \@ary;
 }
 
 sub lock_object_for {
   my $self = shift;
-  my($oid, $pixie) = @_;
-  return 0 if $self->locker_for($oid) eq $pixie->_oid;
-  eval {$self->prepare_execute(q{INSERT INTO } . $self->lock_table .
-			       q{ ( oid, locker )
-				 VALUES ( ?, ? )},
-			       $oid, $pixie->_oid)};
-  die "Cannot lock $oid for $pixie: $@" if $@;
+  my($oid, $pixie, $timeout) = @_;
+  $timeout = 30 unless defined $timeout;
+  my $lock_holder = $self->locker_for($oid);
+  return 0 if $lock_holder eq $pixie->_oid;
+  my $keep_trying = 1;
+  local $SIG{ALRM} = sub { $keep_trying = 0 };
+  alarm $timeout;
+  while ($keep_trying) {
+    eval {$self->prepare_execute(q{INSERT INTO } . $self->lock_table .
+				 q{ ( px_oid, px_locker )
+				    VALUES ( ?, ? )},
+				 $oid, $pixie->_oid)};
+    last unless $keep_trying && $@;
+    select undef, undef, undef, rand(2 * 1000);
+  }
+  alarm 0;
+  $lock_holder = $self->locker_for($oid);
+  unless ($lock_holder eq $pixie->_oid) {
+    die "Cannot lock $oid for $pixie. Lock is held by ", $lock_holder;
+  }
   return 1;
 }
 
@@ -261,8 +340,8 @@ sub unlock_object_for {
   my $self = shift;
   my($oid, $pixie) = @_;
   eval { $self->prepare_execute(q{DELETE FROM } . $self->lock_table .
-				q{ WHERE oid = ? AND locker = ? },
-				$oid, $pixie->_oid) };
+                                q{ WHERE px_oid = ? AND px_locker = ? },
+                                $oid, $pixie->_oid) };
   die "Couldn't unlock $oid for $pixie: $@" if $@;
   if ( my $other_locker = $self->locker_for($oid) ) {
     die "$oid is locked by another process: $other_locker";
@@ -275,9 +354,9 @@ sub locker_for {
   my($oid) = @_;
   $oid = $oid->px_oid if ref $oid;
 
-  my $sth = $self->prepare_execute(q{SELECT locker FROM } . $self->lock_table .
-				   q{ WHERE oid = ? },
-				   $oid);
+  my $sth = $self->prepare_execute(q{SELECT px_locker FROM } . $self->lock_table .
+                                   q{ WHERE px_oid = ? },
+                                   $oid);
   my $rows = $sth->fetchall_arrayref();
   $sth->finish;
   if ( @$rows == 0 ) {

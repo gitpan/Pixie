@@ -4,7 +4,7 @@ use Storable qw/nfreeze thaw/;
 use BerkeleyDB;
 use File::Spec;
 
-our $VERSION = '2.04';
+our $VERSION='2.05';
 
 use base qw/Pixie::Store/;
 
@@ -74,14 +74,14 @@ sub get_object_at {
   return thaw $val;
 }
 
-sub delete {
+sub remove_from_store {
   my $self = shift;
   my($oid) = @_;
   my $val;
   my $db = $self->db;
   my $ret = $db->db_get($oid, $val) == 0;
   $db->db_del($oid);
-  return $ret;
+  return $ret;X
 }
 
 sub clear {
@@ -99,4 +99,25 @@ sub clear {
 sub lock { $_[0] }
 sub unlock { $_[0] }
 sub rollback { $_[0] }
+
+sub rootset {
+  my $self = shift;
+  my @set = ($self->get_object_at('<NAME:PIXIE::rootset>') || {})->keys;
+  return @set;
+}
+
+sub working_set_for {
+  my $self = shift;
+  my @set = grep !/^<NAME:PIXIE::/, keys %{$self->db};
+  wantarray ? @set : \@set;
+}
+
+sub _add_to_rootset {
+  my $self = shift;
+  my $oid = shift->PIXIE::oid;
+  my $set  = $self->get_object_at('<NAME:PIXIE::rootset>') || {};
+  $set->{oid} = 1;
+  $self->store_at('<NAME:PIXIE::rootset>' => $set);
+  return $self;
+}
 1;

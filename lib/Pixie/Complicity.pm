@@ -155,6 +155,7 @@ init method to set up stuff based on the instance variables...)
 package UNIVERSAL;
 
 use Scalar::Util qw/ blessed weaken reftype isweak /;
+use strict;
 
 sub px_is_storable {
   my $self = shift;
@@ -197,55 +198,9 @@ sub px_empty_new {
 # 'Internal' methods
 
 
-sub _px_extraction_freeze {
-  shift;
-}
-
-sub _px_extraction_thaw {
-  my $self  = shift;
-  my $class = ref($self);
-  my $pixie = Pixie->get_the_current_pixie;
-  my $oid   = Pixie->get_the_current_oid;
-  $self = $self->px_thaw;
-
-  my $real_obj = $pixie->make_new_object($self, ref($self));
-
-  bless $self, 'Class::Whitehole' unless
-    $self->PIXIE::address == $real_obj->PIXIE::address;
-
-  $pixie->{_objectmanager}->bind_object_to_oid($real_obj => $oid);
-  $real_obj->PIXIE::oid eq $oid or die "Bad OID stuff";
-  $pixie->cache_insert($real_obj);
-  return $real_obj;
-}
-
-sub _px_insertion_freeze {
-  my $self = shift;
-  my $pixie = Pixie->get_the_current_pixie;
-  $pixie->ensure_storability($self);
-  my($oid) = $pixie->cache_insert($self);
-  $self = $self->px_freeze;
-  bless {oid     => $oid,
-	 class   => ref($self),
-	 content => $self->px_as_rawstruct }, Pixie::ObjHolder;
-}
-
-sub _px_insertion_thaw {
-  my $self = shift;
-  Carp::confess "UNIVERSAL::_px_insertion_thaw should never be reached!";
-}
-
-sub Pixie::ObjHolder::_px_insertion_thaw {
-  my $obj_holder = shift;
-  my $class = $obj_holder->{class};
-  my $self = bless $obj_holder->{content}, $class;
-
-  my $pixie = Pixie->get_the_current_pixie;
-  $pixie->{_objectmanager}->bind_object_to_oid($self, $obj_holder->{oid});
-  $pixie->ensure_storability($self);
-  my $retval = $pixie->store_individual_at($self, $obj_holder->{oid});
-  bless $self, 'Class::Whitehole';
-  return $retval;
-}
+sub _px_extraction_freeze { Pixie->get_the_current_pixie->extraction_freeze(@_) }
+sub _px_extraction_thaw   { Pixie->get_the_current_pixie->extraction_thaw(@_)   }
+sub _px_insertion_freeze  { Pixie->get_the_current_pixie->insertion_freeze(@_)  }
+sub _px_insertion_thaw    { Pixie->get_the_current_pixie->insertion_thaw(@_)    }
 
 1;

@@ -31,14 +31,20 @@ sub birthday { $_[0]->{birthday} }
 
 package main;
 
-use Test::More tests => 39;
 
 
-for my $store_spec (qw/memory dbi:mysql:dbname=test bdb:objects.bdb/) {
+use Test::More;
+
+my @specs = qw/memory bdb:objects.bdb/;
+push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if $ENV{PIXIE_TEST_STORES};
+
+plan tests => 13 * @specs;
+
+for my $store_spec (@specs) {
   SKIP: {
     my $p = eval {Pixie->new->connect($store_spec)};
     if ($@) {
-  #    warn $@;
+      warn $@;
       skip "Can't load $store_spec store", 13;
     }
 

@@ -1,7 +1,7 @@
 #!perl -w
 
 use strict;
-use Test::More tests => 36;
+use Test::More;
 
 use lib 't';
 use blib;
@@ -9,9 +9,12 @@ use Sunnydale;
 
 use Pixie;
 
-for (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
-  run_tests($_);
-}
+my @specs = qw/memory bdb:objects.bdb/;
+push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if $ENV{PIXIE_TEST_STORES};
+
+plan tests => 12 * @specs;
+
+run_tests($_) for @specs;
 
 sub Human::best_friend { $_[0]->{best_friend} }
 

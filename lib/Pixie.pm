@@ -72,13 +72,14 @@ use Scalar::Util qw/ blessed reftype isweak /;
 									
 use Pixie::Store;
 use Pixie::ObjectInfo;
+use Pixie::ObjectGraph;
 
 use Pixie::LiveObjectManager;
 use Pixie::Complicity;
 
 use Pixie::LockStrat::Null;
 
-our $VERSION = '2.04';
+our $VERSION='2.05';
 our $the_current_pixie;
 our $the_current_oid;
 our $the_current_lock_strategy;
@@ -87,7 +88,6 @@ use base 'Pixie::Object';
 
 
 #BEGIN { $Data::Dumper::Useperl = 1 }
-
 
 ## CLASS METHODS
 sub get_the_current_pixie {
@@ -105,7 +105,6 @@ sub get_the_current_lock_strategy {
 }
 
 sub init {
-
   my $self = shift;
 
   $self->connect('memory');
@@ -228,16 +227,54 @@ sub _insert{
   local $Data::Dumper::Freezer = '_px_insertion_freeze';
   local $Data::Dumper::Toaster = '_px_insertion_thaw';
 
+  local %PIXIE::freeze_cache;
   my $proxy = $self->do_dump_and_eval($this, 1);
 
   return defined($proxy) ? $proxy->_oid : undef;
 }
 
+sub insertion_freeze {
+  my $self = shift;
+  my $thing = shift;
+  $self->ensure_storability($thing);
+  my $oid = $thing->PIXIE::oid;
+  return $PIXIE::freeze_cache{$oid} if defined $PIXIE::freeze_cache{$oid};
+  $self->cache_insert($thing);
+  $thing = $thing->px_freeze;
+  my $obj_holder = bless {oid     => $oid,
+				      class   => ref($thing),
+				      content => $thing->px_as_rawstruct },
+					'Pixie::ObjHolder';
+  $PIXIE::freeze_cache{$oid} = $obj_holder;
+}
+
+
+sub insertion_thaw {
+  my $self = shift;
+  my $obj_holder = shift;
+  die "Object is not a Pixie::ObjHolder" unless $obj_holder->isa('Pixie::ObjHolder');
+
+  my $thing = bless $obj_holder->{content}, $obj_holder->{class};
+  my $thing_oid = $obj_holder->{oid};
+
+  $self->{_objectmanager}->bind_object_to_oid($thing, $thing_oid);
+  $self->ensure_storability($thing);
+  my $retval = $self->store_individual_at($thing, $obj_holder->{oid});
+
+  # Set up GC stuff
+  my $graph = $self->object_graph;
+  $graph->add_edge($thing_oid => $_) for
+    $self->proxied_content($obj_holder);
+  bless $thing, 'Class::Whitehole';
+  return $retval;
+}
+
+
 sub insert {
   my $self = shift;
-
   my $ret = eval { $self->_insert(@_) };
   $self->bail_out($@) if $@;
+  $self->add_to_rootset(@_);
   return $ret;
 }
 
@@ -279,7 +316,7 @@ sub delete {
 
   my $oid = ref($obj_or_oid) ? $obj_or_oid->PIXIE::oid : $obj_or_oid;
   $self->cache_delete($oid);
-  $self->store->delete($oid);
+  $self->store->remove_from_store($oid);
 }
 
 sub forget_about {
@@ -313,6 +350,31 @@ sub _get {
   bless $rawstruct, 'Class::Whitehole';
   return scalar $self->cache_insert($newstruct);
 }
+
+sub extraction_freeze {
+  my $self = shift;
+  my $thing = shift;
+  return $thing;
+}
+
+sub extraction_thaw {
+  my $self = shift;
+  my $thing = shift;
+
+  my $oid   = Pixie->get_the_current_oid;
+  $thing = $thing->px_thaw;
+
+  my $real_obj = $self->make_new_object($thing, ref($thing));
+
+  bless $thing, 'Class::Whitehole' unless
+    $thing->PIXIE::address == $real_obj->PIXIE::address;
+
+  $self->{_objectmanager}->bind_object_to_oid($real_obj => $oid);
+  $real_obj->PIXIE::oid eq $oid or die "Bad OID stuff";
+  $self->cache_insert($real_obj);
+  return $real_obj;
+}
+
 
 sub make_new_object {
   my $self = shift;
@@ -390,13 +452,73 @@ sub unbind_name {
 
 sub get_object_named {
   my $self = shift;
-  my($name) = @_;
+  my($name, $strategy) = @_;
   require Pixie::Name;
-  if (wantarray) {
-    return (Pixie::Name->get_object_from($name, $self));
-  } else {
-    return Pixie::Name->get_object_from( $name, $self );
+  Pixie::Name->get_object_from($name, $self, $strategy);
+}
+
+
+
+# GC related stuff
+
+sub rootset {
+  my $self = shift;
+  $self->{store}->rootset;
+}
+
+sub add_to_rootset {
+  my $self = shift;
+  $self->store->add_to_rootset(@_);
+  return $self;
+}
+
+sub proxy_finder {
+  my $obj = shift;
+  $Pixie::neighbours{$obj->_oid} = 1 if ref($obj)->isa('Pixie::Proxy');
+  return $obj;
+}
+
+sub proxied_content {
+  my $self = shift;
+  my $obj_holder = shift;
+
+  local %Pixie::neighbours;
+
+  local $Data::Dumper::Freezer = 'Pixie::proxy_finder';
+  local $Data::Dumper::Toaster = undef;
+  Data::Dumper::DumperX($obj_holder);
+  return keys %Pixie::neighbours;
+}
+
+sub neighbours {
+  my $self = shift;
+  my $oid = shift;
+  $self->object_graph->neighbours($oid);
+}
+
+sub live_set {
+  my $self = shift;
+  my $graph = $self->object_graph;
+  my %seen = ();
+  my @nodes_to_process = $self->rootset;
+
+  while (@nodes_to_process) {
+    my $node = pop @nodes_to_process;
+    next if $seen{$node};
+    $seen{$node} = 1;
+    push @nodes_to_process, $graph->neighbours($node);
   }
+  return keys %seen;
+}
+
+sub object_graph {
+  my $self = shift;
+  $self->store->object_graph_for($self);
+}
+
+sub working_set {
+  my $self = shift;
+  $self->store->working_set_for($self);
 }
 
 sub ensure_storability {

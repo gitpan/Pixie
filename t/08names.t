@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 72;
+use Test::More;
 
 use lib 't';
 use blib;
@@ -11,10 +11,12 @@ use Sunnydale;
 use Pixie;
 
 #BEGIN { use_ok 'Pixie::Name' }
+my @specs = qw/memory bdb:objects.bdb/;
+push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if $ENV{PIXIE_TEST_STORES};
 
-for (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
-  run_tests($_);
-}
+plan tests => 24 * @specs;
+
+run_tests($_) for @specs;
 
 sub run_tests {
   my $store_spec = shift;

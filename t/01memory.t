@@ -81,7 +81,6 @@ sub hierarchy_test : Test(18) {
   ok !$angel->sire->px_is_managed;
 }
 
-
 sub UNIVERSAL::px_is_managed {
   my $self = shift;
   defined($self->PIXIE::get_info->the_container);

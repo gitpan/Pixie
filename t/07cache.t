@@ -9,11 +9,14 @@ use Sunnydale;
 
 use Pixie;
 
-use Test::More tests => 72;
+use Test::More;
 
-for (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
-  run_tests($_);
-}
+my @specs = qw/memory bdb:objects.bdb/;
+push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if $ENV{PIXIE_TEST_STORES};
+
+plan tests => 24 * @specs;
+
+run_tests($_) for @specs;
 
 sub run_tests {
   my $store_spec = shift;
