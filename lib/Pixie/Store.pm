@@ -1,7 +1,7 @@
 package Pixie::Store;
 
 use strict;
-our $VERSION = '2.02';
+our $VERSION = '2.03';
 my %typemap = ( memory => 'Pixie::Store::Memory',
                 bdb => 'Pixie::Store::BerkeleyDB',
                 dbi => 'Pixie::Store::DBI', );

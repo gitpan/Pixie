@@ -8,6 +8,7 @@ TODO
 lib/Pixie.pm
 lib/Pixie/CacheManager.pm
 lib/Pixie/Hook.pm
+lib/Pixie/ManagedObject.pm
 lib/Pixie/Name.pm
 lib/Pixie/Object.pm
 lib/Pixie/ObjectInfo.pm

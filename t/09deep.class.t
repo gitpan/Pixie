@@ -11,7 +11,7 @@ use blib;
 use Sunnydale;
 sub Human::best_friend { $_[0]->{best_friend} }
 
-
+use Test::Class;
 use base qw/Test::Class/;
 
 
@@ -20,8 +20,11 @@ sub new {
   my $self  = $proto->SUPER::new;
 
   $self->{pixie_spec} = shift;
-  $self->{pixie} = Pixie->new->connect($self->{pixie_spec})
-    or die "Can't connect to pixie";
+  eval {
+      $self->{pixie} = Pixie->new->connect($self->{pixie_spec})
+	  or die "Can't connect to pixie";
+  };
+  if ($@) { return undef }
   return $self;
 }
 
@@ -84,6 +87,9 @@ sub test_03 : Test(4) {
 
 package main;
 
-my @testers = map DeepTest->new($_),
+my @testers = grep defined, map DeepTest->new($_),
 		      qw/memory bdb:objects.bdb/;
 Test::Class->runtests(@testers);
+
+
+

@@ -4,7 +4,7 @@ use base 'Pixie::Object';
 use strict;
 use Scalar::Util qw/weaken/;
 
-our $VERSION = '2.02';
+our $VERSION = '2.03';
 
 sub set_pixie {
   my $self = shift;;

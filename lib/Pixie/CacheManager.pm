@@ -4,7 +4,7 @@ use strict;
 
 use base 'Pixie::Object';
 
-our $VERSION = '2.02';
+our $VERSION = '2.03';
 
 sub init {
   my $self = shift;

@@ -5,6 +5,7 @@ package SafeOIDTest;
 use Pixie;
 
 use lib 't';
+use Test::Class;
 use base qw/Test::Class/;
 use Test::More;
 

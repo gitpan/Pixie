@@ -76,7 +76,7 @@ use Pixie::ObjectInfo;
 use Pixie::OidManager;
 use Pixie::ShadowManager;
 
-our $VERSION = '2.02';
+our $VERSION = '2.03';
 our $the_current_pixie;
 our $the_current_oid;
 

@@ -12,7 +12,7 @@ use Scalar::Util qw/reftype weaken/;
 
 our $AUTOLOAD;
 
-our $VERSION = '2.02';
+our $VERSION = '2.03';
 
 use Pixie::Object;
 use Pixie::ManagedObject;

@@ -5,7 +5,7 @@ use strict;
 use Pixie::Object;
 use base 'Pixie::Object';
 
-our $VERSION = '2.02';
+our $VERSION = '2.03';
 
 use Data::UUID;
 use Scalar::Util qw/blessed weaken/;

@@ -2,7 +2,7 @@ package Pixie::ObjectInfo;
 
 use strict;
 
-our $VERSION = '2.02';
+our $VERSION = '2.03';
 use Data::UUID;
 
 sub new {

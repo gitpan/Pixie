@@ -1,3 +1,8 @@
+2.03
+	- fixed installation problems
+	- fixed t/09deep.class.t to make sure it didn't die when
+	  it couldn't connect to one of the various storage mechanisms.
+
 2.02
 	- changed to use $Data::Dumper::Bless
 	- oids no longer stored in the objects
