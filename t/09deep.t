@@ -1,7 +1,7 @@
 #!perl -w
 
 use strict;
-use Test::More 'no_plan';
+use Test::More tests => 36;
 
 use lib 't';
 use blib;
@@ -13,8 +13,6 @@ for (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
   run_tests($_);
 }
 
-
-
 sub Human::best_friend { $_[0]->{best_friend} }
 
 sub run_tests {
@@ -24,8 +22,7 @@ sub run_tests {
   {
     my $p = eval { Pixie->new->connect($store_spec) };
     if ($@) {
-      warn $@;
-      skip "Can't load $store_spec store", 1;
+      skip "Can't load $store_spec store", 12;
     }
 
     $p->clear_storage;

@@ -9,5 +9,6 @@ WriteMakefile (
 		   Test::Simple      => 0.01,
 		   DBIx::AnyDBD      => 0,
 		   Data::UUID        => 0.01,
+		   Test::Class       => 0.03,
 		  },
 );

@@ -4,10 +4,16 @@ CHANGES
 MANIFEST			This list of files
 Makefile.PL
 README
+TODO
 lib/Pixie.pm
+lib/Pixie/CacheManager.pm
 lib/Pixie/Hook.pm
 lib/Pixie/Name.pm
+lib/Pixie/Object.pm
+lib/Pixie/ObjectInfo.pm
+lib/Pixie/OidManager.pm
 lib/Pixie/Proxy.pm
+lib/Pixie/ShadowManager.pm
 lib/Pixie/Store.pm
 lib/Pixie/Store/BerkeleyDB.pm
 lib/Pixie/Store/DBI.pm
@@ -22,7 +28,9 @@ t/05flatarray.t
 t/06flathash.t
 t/07cache.t
 t/08names.t
+t/09deep.class.t
 t/09deep.t
+t/10safeoids.t
 t/Springfield.pm
 t/Sunnydale.pm
 test.sql

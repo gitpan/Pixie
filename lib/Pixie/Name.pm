@@ -2,7 +2,7 @@ package Pixie::Name;
 
 use strict;
 
-our $VERSION = '2.01';
+our $VERSION = '2.02';
 
 sub new {
   my $proto = shift;
@@ -23,13 +23,21 @@ sub get_object_from {
   return unless $name_obj;
   my $target = $name_obj->target;
   if (wantarray) {
-    return map $_->restore, @$target;
+    return map { eval { $_->restore } || $_ } @$target;
   }
   else {
-    return $target->[-1]->restore;
+    if ($target->[-1]->isa('Pixie::Proxy')) {
+      return $target->[-1]->restore;
+    } else { return $target->[-1]; }
   }
 }
 
+sub remove_name_from {
+  my $proto = shift;
+  my($name, $pixie) = @_;
+
+  $pixie->delete("<NAME:$name>");
+}
 
 sub _oid {
   my $self = shift;

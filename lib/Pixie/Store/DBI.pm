@@ -3,7 +3,7 @@ package Pixie::Store::DBI;
 use DBI;
 use DBIx::AnyDBD;
 
-our $VERSION = '2.01';
+our $VERSION = '2.02';
 
 use base Pixie::Store;
 

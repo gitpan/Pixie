@@ -1,9 +1,63 @@
-Pixie is Copyright 2002 Fotango Ltd.
-Pixie is released under the same license as Perl itself.
+NAME
+    Pixie - The magic data pixie
 
-Some tests appear with courtesy of Jean Louis Leroy of Sound Object Logic, 
-author of <a href="search.cpan.org/search?dist=Tangram">Tangram</a>.
+SYNOPSIS
+      use Pixie;
 
+      my $pixie = Pixie->new->connect('dbi:mysql:dbname=test', $user, $pass);
 
+      # Save an object
+      my $cookie = $pixie->insert($some_object);
 
+      undef($some_object);
+
+      # Get it back
+      my $some_object = $pixie->get($cookie);
+
+      $pixie->bind_name( "Some Name" => $some_object );
+      my $result = $pixie->get_object_named( "Some Name" );
+
+DESCRIPTION
+    Pixie is yet another object persistence tool. The basic goal of Pixie is
+    that it should be possible to throw any object you want at a data pixie
+    and the pixie will just tuck it away in its magic sack, giving you a
+    cookie in exchange. Then, minutes, hours or days later, you can show the
+    pixie your cookie and get the object back.
+
+    No schemas. No complex querying. No refusing to handle blessed arrays.
+
+    How does pixie do this? Well... when we said 'any object' we were being
+    slightly disingenuous. As far as Pixie is concerned 'any object' means
+    'any object that satisfies any of these criteria':
+
+    *   The toplevel object is a blessed hash.
+
+    *   The toplevel object is a blessed array
+
+    Right now, Pixie can only save blessed hashes and blessed arrays, but it
+    should be possible to extend it to support 'bless arbitrary scalars'.
+    However, during testing we found that blessed arbitrary scalars were
+    often used with XS classes that stored extra data where Storable and
+    Data::Dumper could not see it, leading to all sorts of horrors on
+    restoration. So we turned that feature off pending a better approach.
+    Further more support for blessed regexes and blessed subroutine
+    references should be possible in the future with very little effort
+    required.
+
+    Pixie can additionally be used to name objects in the store, and fetch
+    them later on with that name.
+
+WITH THANKS
+    Jean Louis Leroy, author of Tangram, for letting us use ideas and code
+    from the Tangram test suite.
+
+AUTHOR
+    Pixie sprang from the mind of James Duncan <james@fotango.com>. Piers
+    Cawley <pdcawley@bofh.org.uk> and Leon Brocard <acme@astray.org> are his
+    co conspiritors.
+
+COPYRIGHT
+    Copyright 2002 Fotango Ltd
+
+    This software is released under the same license as Perl itself.
 

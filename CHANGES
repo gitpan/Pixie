@@ -1,3 +1,9 @@
+2.02
+	- changed to use $Data::Dumper::Bless
+	- oids no longer stored in the objects
+	- everything in UNIVERSAL is prefixed with px_
+2.01
+	- readme update
 2.00 
 	- rewrite of orginal pixie idea to make it a little more intelligent
 	- pdcawley added hundreds of useful changes

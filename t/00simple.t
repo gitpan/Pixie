@@ -31,15 +31,15 @@ sub birthday { $_[0]->{birthday} }
 
 package main;
 
-use Test::More tests => 33;
+use Test::More tests => 39;
 
 
 for my $store_spec (qw/memory dbi:mysql:dbname=test bdb:objects.bdb/) {
   SKIP: {
     my $p = eval {Pixie->new->connect($store_spec)};
     if ($@) {
-      warn $@;
-      skip "Can't load $store_spec store", 11;
+  #    warn $@;
+      skip "Can't load $store_spec store", 13;
     }
 
     my $james = bless({
@@ -62,6 +62,7 @@ for my $store_spec (qw/memory dbi:mysql:dbname=test bdb:objects.bdb/) {
     my %oid;
     $oid{james} = $p->insert( $james );
     $oid{piers} = $p->insert( $piers );
+    $oid{james_bday} = $p->oid( $james->birthday );
     $james = undef;
     $piers = undef;
     ok my $pdc = $p->get($oid{piers});
@@ -72,9 +73,10 @@ for my $store_spec (qw/memory dbi:mysql:dbname=test bdb:objects.bdb/) {
     my $result = $p->delete($oid{piers});
     ok defined($result) && $result == 0;
     my $b = $p->get( $oid{james} )->{birthday};
+    is $p->oid($b), $oid{james_bday};
     my $newtime = scalar( localtime( time() ) );
     $b->date( $newtime );
-    $p->insert( $b );
+    is $p->insert( $b ), $oid{james_bday};
     $b = undef;
     my $c = $p->get( $oid{james} );
     ok($c->{birthday}->date() eq $newtime, "time is right ($newtime)");

@@ -22,7 +22,7 @@ sub run_tests {
   {
     my $pixie = eval { Pixie->new->connect($store_spec) };
     if ($@) {
-      warn $@;
+  #    warn $@;
       skip "Can't load $store_spec store", 24;
     }
     $pixie->store->clear;

@@ -1,0 +1,47 @@
+
+Todo List for Pixie:
+
+1) Locking
+2) Hooks
+3) Rootset tracking
+4) Index by Class
+5) Generic Indexing
+6) GC
+
+
+==== NOTES ON THE ABOVE ARE BELOW HERE ====
+
+LOCKING
+=======
+
+1) a lock store goes at the backend.
+2) locking achieved via $D::D::Toaster
+use Data::Dumper;
+
+$Data::Dumper::Toaster = 'main::mymethod';
+my $data = bless( {
+                        locked => 1,
+                        oid  => '120479a717f9712341214e',
+                        some => 'data',
+                  }, 'MyObject');
+
+my $dat = Dumper( $data );
+print $dat;
+print Dumper( eval $dat );
+
+sub mymethod {
+  my $self = shift;
+  print "Locking $self\n";
+  if (!$self->{locked}) {
+    $self->{ locked } = 1;
+  } else {
+    return bless( { masq => { id => $self->{oid} } }, "LOCKER" );
+  }
+  return $self;
+}
+
+
+3) lock on gets
+4) hang 'Lock Cleaner' objects inside other objects that clear locks on DESTROY
+
+

@@ -18,6 +18,9 @@ Pixie - The magic data pixie
   # Get it back
   my $some_object = $pixie->get($cookie);
 
+  $pixie->bind_name( "Some Name" => $some_object );
+  my $result = $pixie->get_object_named( "Some Name" );
+
 =head1 DESCRIPTION
 
 Pixie is yet another object persistence tool. The basic goal of Pixie
@@ -40,17 +43,9 @@ The toplevel object is a blessed hash.
 
 =item *
 
-The toplevel object is a blessed array and C<$object-E<gt>can('_oid')> (it
-is a good idea if the _oid returned is unique, for appropriate values of 'unique'.
+The toplevel object is a blessed array
 
 =back
-
-Once you get below the toplevel of a composed object there is no
-longer a requirment for classes that are represented by blessed arrays
-to implement the C<_oid> method (though if you do not implement
-C<_oid>) you will almost certainly find that multiple objects that
-point to the same blessed array will no longer do so after they have
-been saved and restored. Which may not be what you want...
 
 Right now, Pixie can only save blessed hashes and blessed arrays, but
 it should be possible to extend it to support 'bless arbitrary
@@ -58,7 +53,11 @@ scalars'. However, during testing we found that blessed arbitrary
 scalars were often used with XS classes that stored extra data where
 Storable and Data::Dumper could not see it, leading to all sorts of
 horrors on restoration. So we turned that feature off pending a better
-approach.
+approach.  Further more support for blessed regexes and blessed subroutine
+references should be possible in the future with very little effort required.
+
+Pixie can additionally be used to name objects in the store, and fetch them
+later on with that name.
 
 =cut
 
@@ -69,27 +68,28 @@ use Data::UUID;
 use Pixie::Hook;
 use Pixie::Proxy;
 use Data::Dumper;
-use Scalar::Util qw/ blessed weaken /;
-
+use Scalar::Util qw/ blessed weaken reftype isweak /;
+									
 use Pixie::Store;
+use Pixie::ObjectInfo;
 
-our $VERSION = '2.01';
+use Pixie::OidManager;
+use Pixie::ShadowManager;
 
-sub new {
-  my $class = shift;
-  my $self  = {cache => {},};
-  bless $self, $class;
+our $VERSION = '2.02';
+our $the_current_pixie;
+our $the_current_oid;
 
-  $self->init();
-
-  return $self;
-}
+use base 'Pixie::Object';
 
 sub init {
   my $self = shift;
 
   $self->hook( Pixie::Hook->new() );
   $self->connect('memory');
+  $self->{cache} = {};
+  $self->{_oidmanager} = Pixie::OidManager->new->set_pixie($self);
+  $self->{_shadow_class_manager} = Pixie::ShadowManager->new->set_pixie($self);
   return $self;
 }
 
@@ -130,18 +130,26 @@ sub store_individual {
   my $self = shift;
   my $real = shift;
 
+  die "Trying to store something unstorable" if
+    eval { $real->isa('Pixie::ObjectInfo') };
   my $oid = $self->oid( $real );
-  if (defined($oid)) {
-    if ($Pixie::Stored{$oid}) {
-      return $Pixie::Stored{$oid};
-    }
-    else {
-      $self->cache_insert($real);
-      return $self->make_proxy($self->store->store_at($oid => $real));
-    }
+  if (defined $oid) {
+    $self->store_individual_at($real, $oid);
   }
   else {
     return $real;
+  }
+}
+
+
+sub store_individual_at {
+  my $self = shift;
+  my($obj, $oid) = @_;
+  if ($Pixie::Stored{$oid}) {
+    return $Pixie::Stored{$oid};
+  }
+  else {
+    return $self->make_proxy($self->store->store_at($oid => $obj));
   }
 }
 
@@ -153,35 +161,8 @@ sub make_proxy {
 
 sub oid {
   my $self = shift;
-  my $real = shift;
-  return unless defined $real;
-
-  if (blessed($real) && $real->can('_oid')) {
-    if (wantarray) {
-      return( $real->_oid, 0);
-    } else {
-      return $real->_oid;
-    }
-  } elsif ($real->isa('HASH')) {
-    if (defined( $real->{_oid} )) {
-      if (wantarray) {
-        return ($real->{_oid}, 0);
-      } else {
-        return $real->{_oid};
-      }
-    }
-    else {
-      my $oid = Data::UUID->new()->create_str();
-      $real->{_oid} = $oid;
-      if (wantarray) {
-        return ($oid, 1)
-      } else {
-        return $oid;
-      }
-    }
-  } else {
-    return;
-  }
+  my $oid = $self->{_oidmanager}->get_oid_for(@_);
+  return wantarray ? ($oid, 0) : $oid;
 }
 
 sub insert {
@@ -190,23 +171,52 @@ sub insert {
 
   local %Pixie::Stored;
   $self->oid($this);
-  $self->cache_insert($this);
 
-  my $thissub = sub {
-    my $struct = shift;
-    my $class  = shift;
+  local $Data::Dumper::Freezer = 'px_insertion_freeze';
+  local $Data::Dumper::Toaster = 'px_insertion_thaw';
+  local $Data::Dumper::Deepcopy = 1;
 
-    unless ($self->can_store($struct, $class)) {
-      warnings::warn("Don't know how to insert a $class");
-      return undef;
+  no warnings qw/redefine/;
+  local *UNIVERSAL::px_insertion_freeze = eval {
+    my $pixie = $self;
+    sub {
+      my $self = shift;
+      my($oid) = $pixie->cache_insert($self);
+      bless { oid => $oid,
+	      class => $self->real_class,
+	      content => $self->px_as_rawstruct }, 'Pixie::ObjHolder';
     }
-    return CORE::bless $struct, $class if
-        (UNIVERSAL::isa($class => 'Pixie::Proxy') &&
-         !UNIVERSAL::isa($class => 'Pixie::Name'));
-    return $self->store_individual( $self->make_new_object($struct, $class) );
   };
+
+  local *Pixie::ObjHolder::px_insertion_thaw = eval {
+    my $pixie = $self;
+    sub {
+      my $obj_holder = shift;
+      my $class = $obj_holder->{class};
+      my $self = bless $obj_holder->{content}, $class;
+
+      $pixie->{_oidmanager}->bind_object_to_oid($self, $obj_holder->{oid});
+
+      unless ($pixie->can_store($self, $class)) {
+	warnings::warn("Don't know how to insert a $class");
+	return undef;
+      }
+      my $retval = $pixie->store_individual_at( $self, $obj_holder->{oid});
+#      $self = $pixie->rebless_into_shadow_class($self);
+#      $self->_PIXIE_dont_do_real_DEST(1);
+      bless $self, 'Class::Whitehole';
+      $pixie->{_oidmanager}->forget_object($self);
+      return $retval;
+    }
+  };
+
   $self->lock_store;
-  my $proxy =  eval { $self->hook->objecthook( $this, $thissub ) };
+
+  my $data_string = Dumper($this);
+  my $VAR1;
+
+  my $proxy = eval $data_string;
+  $self->weaken_cache;
   if ($@) {
     $self->rollback_store;
     $self->unlock_store;
@@ -230,10 +240,16 @@ sub can_store {
 
 sub get {
   my $self = shift;
-  $self->lock_store;
-  my $res = eval { $self->_get(@_) };
-  $self->unlock_store;
-  die $@ if $@;
+  my $res;
+  {
+    local $Pixie::Proxy::NOCACHEFLUSH = 1;
+    $self->lock_store;
+    $res = eval { $self->_get(@_) };
+    $self->unlock_store;
+    die $@ if $@;
+  }
+  $self->weaken_cache;
+  $self->cleanup_cache;
   return $res;
 }
 
@@ -242,7 +258,15 @@ sub delete {
   my $obj_or_oid  = shift;
 
   my $oid = ref($obj_or_oid) ? $self->oid($obj_or_oid) : $obj_or_oid;
+  $self->cache_delete($oid);
   $self->store->delete($oid);
+}
+
+sub forget_about {
+  my $self = shift;
+  return unless ref($self);
+  my $obj = shift;
+  $self->{_oidmanager}->forget_object($obj);
 }
 
 sub lock_store     { $_[0]->store->lock; }
@@ -256,44 +280,56 @@ sub _get {
   return undef unless defined $oid;
   my $cached_struct = $self->cache_get($oid);
   return $cached_struct if defined($cached_struct);
+
+  local $Data::Dumper::Freezer = 'px_extraction_freeze';
+  local $Data::Dumper::Toaster = 'px_extraction_thaw';
+  local $Data::Dumper::Deepcopy = 1;
+  local $the_current_pixie = $self;
+  local $the_current_oid = $oid;
+
   my $rawstruct = $self->store->get_object_at( $oid );
   return unless defined($rawstruct);
-  my $thissub = sub {
-    my $struct = shift;
-    my $class  = shift;
-    my $blessed = undef;
-    if ($class->isa('Pixie::Proxy')) {
-      $blessed = CORE::bless( $struct, $class );
-      my $oid = $blessed->_oid;
-      my $ret = $self->cache_get($oid);
-      if (defined($ret)) {
-        bless $blessed, 'Class::Whitehole';
-        return $self->cache_insert($ret);
-      }
-      else {
-        return  $self->cache_insert($blessed->the_store($self));
-      }
-    } else {
-      return $self->cache_insert($self->make_new_object($struct, $class));
-    }
-  };
-  my $ret = $self->hook->objecthook( $rawstruct, $thissub );
-  bless $rawstruct, 'Class::Whitehole';
-  $self->cache_insert($ret);
-  return $ret;
+
+  my $data_string = Dumper($rawstruct);
+  my $VAR1;
+  eval $data_string;
+  die $@ if $@;
+  $rawstruct = $self->rebless_into_shadow_class($rawstruct);
+  $rawstruct->_PIXIE_dont_do_real_DEST(1);
+  return $VAR1;
 }
+
+sub UNIVERSAL::px_extraction_freeze {
+  shift;
+}
+
+sub UNIVERSAL::px_extraction_thaw {
+  my $self  = shift;
+  my $class = ref($self);
+  my $pixie = $the_current_pixie;
+  my $oid   = $the_current_oid;
+
+  $self = $pixie->rebless_into_shadow_class($self);
+  $self->_PIXIE_dont_do_real_DEST(1);
+
+  my $real_obj = $pixie->make_new_object($self, $class);
+  $pixie->{_oidmanager}->bind_object_to_oid($real_obj => $oid);
+  $pixie->oid($real_obj) eq $oid or die "Bad OID stuff";
+  $pixie->cache_insert($real_obj);
+  return $real_obj;
+}
+
 
 sub make_new_object {
   my $self = shift;
   my($struct, $class) = @_;
 
-  my $real = eval { local *bless = \&CORE::bless;
-                    $class->new };
+  my $real = eval { $class->new };
   if ($@) {
-    $real = CORE::bless $struct, $class;
+    $real = bless $struct, $class;
   }
   else {
-    my $type = ref($struct);
+    my $type = reftype($struct);
 
     if ($type eq 'SCALAR') {
       $$real = $$struct;
@@ -322,14 +358,46 @@ sub flush_cache {
 sub cache_insert {
   my $self = shift;
   my $obj = shift;
+  require Carp;
+  return $obj if $obj->isa('Pixie::ObjectInfo');
+  $obj = $self->rebless_into_shadow_class($obj);
   my $oid = $self->oid($obj);
   no warnings 'uninitialized';
   if (length($oid) && ! defined($self->{cache}{$oid}) ) {
     $self->{cache}{$oid} = $obj;
-    weaken $self->{cache}{$oid};
+#    weaken $self->{cache}{$oid};
   }
-  return $obj;
+  return $oid, $obj;
 }
+
+sub weaken_cache {
+  my $self = shift;
+  no warnings 'uninitialized';
+  my $cache = $self->{cache};
+  for my $key (keys %$cache) {
+    (isweak($$cache{$key}) || weaken($$cache{$key}));
+  }
+  return $self;
+}
+
+
+sub cleanup_cache {
+  my $self = shift;
+  for (keys %{$self->cache}) {
+    delete $self->cache->{$_} unless defined $self->cache->{$_};
+  }
+}
+
+sub cache_size {
+  my $self = shift;
+  return scalar keys %{$self->cache};
+}
+
+sub rebless_into_shadow_class {
+  my $self = shift;
+  $self->{_shadow_class_manager}->rebless(shift);
+}
+
 
 sub cache_get {
   my $self = shift;
@@ -358,20 +426,62 @@ sub bind_name {
   Pixie::Name->name_object_in($name, \@objects, $self);
 }
 
+sub unbind_name {
+  my $self = shift;
+  my($name) = @_;
+
+  require Pixie::Name;
+  Pixie::Name->remove_name_from($name, $self);
+}
+
 sub get_object_named {
   my $self = shift;
   my($name) = @_;
   require Pixie::Name;
-  Pixie::Name->get_object_from($name, $self);
+  if (wantarray) {
+    return (Pixie::Name->get_object_from($name, $self));
+  } else {
+    return Pixie::Name->get_object_from( $name, $self );
+  }
 }
+
+sub UNIVERSAL::px_is_not_proxiable {
+
+}
+
+sub UNIVERSAL::px_as_rawstruct {
+  my $self = shift;
+  my $type = reftype($self);
+
+  if ($type eq 'HASH') {
+    return { %$self };
+  }
+  elsif ($type eq 'ARRAY') {
+    return [ @$self ];
+  }
+  elsif ($type eq 'SCALAR') {
+    my $scalar = $$self;
+    return \$scalar;
+  }
+}
+
+=head1 WITH THANKS
+
+Jean Louis Leroy, author of Tangram, for letting us use ideas and code from
+the Tangram test suite.
 
 =head1 AUTHOR
 
-Pixie sprang from the mind of James Duncan, james@fotango.com. Piers
-Cawley, pdcawley@bofh.org.uk and Leon Brocard, acme@astray.org are his
+Pixie sprang from the mind of James Duncan <james@fotango.com>. Piers
+Cawley <pdcawley@bofh.org.uk> and Leon Brocard <acme@astray.org> are his
 co conspiritors.
+
+=head1 COPYRIGHT
+
+Copyright 2002 Fotango Ltd
+
+This software is released under the same license as Perl itself.
 
 =cut
 
 1;
-

@@ -3,7 +3,7 @@ package Pixie::Store::DBI::Default;
 use strict;
 use Carp;
 
-our $VERSION = '2.01';
+our $VERSION = '2.02';
 
 use DBIx::AnyDBD;
 use Storable qw/nfreeze thaw/;

@@ -5,7 +5,7 @@ use lib 't';
 use Springfield;
 use Pixie;
 
-use Test::More tests => 30;
+use Test::More tests => 45;
 
 my $store;
 sub empty_store {
@@ -25,8 +25,8 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     undef($store);
     $store = eval {Pixie->new->connect($store_spec)};
     if ($@) {
-       warn $@;
-       skip "Can't load $store_spec store", 10;
+  #     warn $@;
+       skip "Can't load $store_spec store", 15;
     }
 
     {
@@ -45,6 +45,7 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     {
       my $storage = $store;
       my $homer = $storage->get($homer_oid);
+      is $storage->oid($homer), $homer_oid;
       is_deeply $homer->{interests}, ['beer', 'food'];
       $homer = undef;
     }
@@ -54,6 +55,7 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     {
       my $storage = $store;
       my $homer = $storage->get($homer_oid);
+      is $storage->oid($homer), $homer_oid;
 	
       push @{ $homer->{interests} }, 'sex';
       $storage->insert($homer);
@@ -65,6 +67,7 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     {
       my $storage = $store;
       my $homer = $storage->get($homer_oid);
+      is $storage->oid($homer), $homer_oid;
 
       is_deeply $homer->{interests}, ['beer', 'food', 'sex'];
 
@@ -78,6 +81,7 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     {
       my $storage = $store;
       my $homer = $storage->get($homer_oid);
+      is $storage->oid($homer), $homer_oid;
 
       is_deeply $homer->{interests}, ['beer', 'food'];
 
@@ -92,6 +96,7 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     {
       my $storage = $store;
       my $homer = $storage->get($homer_oid);
+      is $storage->oid($homer), $homer_oid;
 
       is_deeply $homer->{interests}, ['sex', 'beer', 'food'];
 	

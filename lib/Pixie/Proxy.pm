@@ -12,13 +12,11 @@ use Scalar::Util qw/reftype weaken/;
 
 our $AUTOLOAD;
 
-our $VERSION = '2.01';
+our $VERSION = '2.02';
 
-sub new {
-  my $proto = shift;
-  my $self = {};
-  bless $self, ref($proto) || $proto;
-}
+use Pixie::Object;
+use Pixie::ManagedObject;
+use base 'Pixie::Object', 'Pixie::ManagedObject';
 
 sub make_proxy {
   my $self = shift;
@@ -37,8 +35,10 @@ sub restore {
   $_[0]->clear_the_store;
   my $real_obj = $_[0]->fetch_from($pixie);
   return $_[0] = undef unless defined $real_obj;
-  $_[0]->populate_from(bless $real_obj, 'Class::Whitehole');
-  bless $_[0], $class;
+  $real_obj = $pixie->rebless_into_shadow_class($real_obj);
+  $real_obj->_PIXIE_dont_do_real_DEST(1);
+  $_[0]->populate_from($real_obj);
+  bless $_[0], ref($real_obj);
 }
 
 sub fetch_from {
@@ -52,14 +52,16 @@ sub fetch_from {
 sub isa {
   my $self = shift;
   my($class) = @_;
-  $self->UNVERSAL::isa($class) || $self->class->isa($class);
+  $self->UNVERSAL::isa($class) || ref($self) && $self->class->isa($class);
 }
+
+sub px_is_not_proxiable { 1 }
 
 sub can {
   my $self = shift;
   my($method) = @_;
 
-  $self->UNVERSAL::can($method) ||
+  $self->UNIVERSAL::can($method) ||
       ref($self) && $self->restore->can($method);
 }
 
@@ -101,7 +103,30 @@ sub STORABLE_thaw {
   return $target;
 }
 
-sub DESTROY { }
+sub insertion_thaw { my $self = shift }
+
+sub px_extraction_thaw {
+  my $self = shift;
+  my $ret = $Pixie::the_current_pixie->cache_get($self->_oid);
+  if ( defined $ret ) {
+    bless $self, 'Class::Whitehole';
+    $Pixie::the_current_pixie->forget_about($self);
+    return $ret;
+  }
+  else {
+    $self->the_store($Pixie::the_current_pixie);
+    $Pixie::the_current_pixie->cache_insert($self);
+    return $self;
+  }
+}
+
+sub DESTROY {
+  my $self = shift;
+  return unless ref $self;
+  my $store = $self->the_store;
+#  return if $Pixie::Proxy::NOCACHEFLUSH;
+  $store->forget_about($self) if defined $store;
+}
 
 sub AUTOLOAD {
   my $method = $AUTOLOAD;
@@ -173,6 +198,10 @@ sub class {
     $self->{class} = shift;
     return $self;
   } else {
+    unless (ref($self)) {
+      require Carp;
+      Carp::confess "Invalid thing: $self";
+    }
     return $self->{class};
   }
 }

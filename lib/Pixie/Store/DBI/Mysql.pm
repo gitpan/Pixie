@@ -2,7 +2,7 @@ package Pixie::Store::DBI::Mysql;
 
 use Storable qw/nfreeze/;
 
-our $VERSION = '2.01';
+our $VERSION = '2.02';
 
 sub store_at {
   my $self = shift;
