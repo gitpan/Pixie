@@ -1,0 +1,39 @@
+#!perl
+
+=head1 NAME
+
+px_deploy - deploy a L<Pixie> store
+
+=head1 SYNOPSIS
+
+ perl px_deploy <dsn> [ <username> [ <password> ] ]
+
+=head1 DESCRIPTION
+
+Deploys a L<Pixie> store.
+
+=cut
+
+use Pixie;
+
+my ($dsn, $user, $pass) = @ARGV;
+die "usage:\n\tperl $0 <dsn> [ <username> [ <password> ] ]\n\n" unless $dsn;
+
+if (Pixie->deploy($dsn, user => $user, pass => $pass)) {
+    print( "deployed store at $dsn\n" );
+}
+
+__END__
+
+=head1 SEE ALSO
+
+L<Pixie>, L<Pixie::Store>
+
+=head1 AUTHOR
+
+Steve Purkis <spurkis@cpan.org>
+
+Originally deploy_pixie.pl
+
+=cut
+

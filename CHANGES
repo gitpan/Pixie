@@ -2,6 +2,27 @@
  Pixie Change Log
 ==================
 
+2.08_02
+  all changes by Steve Purkis unless otherwise noted
+    +	wrote Pixie->deploy( $dsn, %args )
+    +	Pixie::Store now inherits from Pixie::Object
+    +	wrote POD for Pixie::Proxy, Pixie::Store*, cleaned up top-level docs
+    +	slapped a version number on anything that moved
+    +	deploy_pixie.pl --> bin/px_deploy, installed as a binary and documented
+    +	beefed up & reorganized Pixie's test suite -- see t/README
+	each class tested individually, Pixie.pm tests not yet finished.
+    +	BerkeleyDB and SQLite stores now use File::Path's mkpath() to create dirs
+	as needed.
+    +	added $LOCK_TIMEOUT and $GC_LOCK_TIMEOUT to Pixie::Store, and
+	$LOCK_TIMEOUT to Pixie::Store::BerkeleyDB. speeds up concurrency tests.
+    +	spun off Scalar::Footnote, yet to integrate back in
+    +	subclass_responsibility() moved to Pixie::Object, now dies on error.
+    +	wrote Pixie::Name::oid_for_name() to replace hard-coded "<NAME:" text,
+	yet to fully integrate
+    +	beefed up some warnings, now uses confess more (still not throughout)
+    +	more overview comments (almost POD) in various .pm's for the developer
+    +	loads of TODO notes
+
 2.08_01
   all changes by Steve Purkis unless otherwise noted
     +	reverted to 2.06 codebase

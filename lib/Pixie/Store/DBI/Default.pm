@@ -1,32 +1,56 @@
+##
+# NAME
+#   Pixie::Store::DBI::Default - base class for DBI stores
+#
+# SYNOPSIS
+#   # see Pixie::Store::DBI
+#
+# DESCRIPTION
+#   This contains a lot of common code for all DBI stores.  It's based on
+#   DBIx::AnyDBD, so you should read that to understand how subclassing
+#   works.
+##
+
 package Pixie::Store::DBI::Default;
 
 use strict;
-use Carp;
 
-our $VERSION="2.06";
-
+use Carp qw( croak confess );
+use Storable qw( nfreeze thaw );
 use DBIx::AnyDBD;
-use Storable qw/nfreeze thaw/;
 
-use base 'Pixie::Store';
+use base qw( Pixie::Store );
+
+our $VERSION = "2.08_02";
+
+## TODO: timeouts should really be part of a locking strategy
+our $LOCK_TIMEOUT = 30;
 
 sub _raw_connect {
   my $class = shift;
-  my($dsn, %named_args) = @_;
+  my($dsn, %args) = @_;
 
   $dsn =~ s/^(dbi:)?/dbi:/;
 
   my $dbi_args = {AutoCommit => 1, PrintError => 0, RaiseError => 1,};
 
-  my $self = DBIx::AnyDBD->connect($dsn, $named_args{user}, $named_args{pass},
-                                   $dbi_args,
-                                   'Pixie::Store::DBI');
+  my $self = DBIx::AnyDBD->connect( $dsn,
+				    $args{user},
+				    $args{pass},
+				    $dbi_args,
+				    'Pixie::Store::DBI' );
   return unless $self;
-  $self->{'reconnector'} = sub { DBI->connect($dsn,  $named_args{user}, $named_args{pass},
-                                              $dbi_args) };
-  $self->set_object_table($named_args{object_table}   || 'px_object');
-  $self->set_lock_table($named_args{lock_table}       || 'px_lock_info');
-  $self->set_rootset_table($named_args{rootset_table} || 'px_rootset');
+
+  $self->{reconnector} = sub {
+      DBI->connect( $dsn,
+		    $args{user},
+		    $args{pass},
+		    $dbi_args )
+  };
+
+  $self->set_object_table(  $args{object_table}  || 'px_object');
+  $self->set_lock_table(    $args{lock_table}    || 'px_lock_info');
+  $self->set_rootset_table( $args{rootset_table} || 'px_rootset');
   return $self;
 }
 
@@ -39,7 +63,7 @@ sub connect {
 
 sub deploy {
   my $proto = shift;
-  my $self = $proto->_raw_connect(@_);
+  my $self  = $proto->_raw_connect(@_);
   eval { $self->verify_connection };
   $self->_do_deployment->verify_connection;
   return $self;
@@ -83,34 +107,40 @@ sub create_table_index {
   return $_[0];
 }
 
+## TODO: replace with single accessor
 sub set_object_table {
   my $self = shift;
   $self->{object_table} = shift;
   return $self;
 }
 
+## TODO: replace with single accessor
 sub object_table {
   my $self = shift;
   $self->{object_table};
 }
 
+## TODO: replace with single accessor
 sub set_lock_table {
   my $self = shift;
   $self->{lock_table} = shift;
   return $self;
 }
 
+## TODO: replace with single accessor
 sub lock_table {
   my $self = shift;
   $self->{lock_table};
 }
 
+## TODO: replace with single accessor
 sub set_rootset_table {
   my $self = shift;
   $self->{rootset_table} = shift;
   return $self;
 }
 
+## TODO: replace with single accessor
 sub rootset_table {
   my $self = shift;
   $self->{rootset_table};
@@ -122,8 +152,10 @@ sub verify_connection {
 				    qq{  FROM $self->{object_table} LIMIT 1});
   $sth->finish if $sth;
 
-  # This might be better - it doesn't require an eval and may be faster.
-  # Unfortunately it breaks test 11dbistore.t
+  # TODO:
+  # The following might be better - it wouldn't require you to eval this method
+  # and so may be a bit faster.  Unfortunately it breaks the dbi store tests
+  # (11dbistore.t)
   #    -spurkis
 
   #my $dbh  = $self->get_dbh;
@@ -137,23 +169,23 @@ sub _init { $_[0] }
 
 sub reconnect {
   my $self = shift;
-  my $reconnector = $self->{'reconnector'}
-      or croak("Can't reconnect; reconnector is missing.");
+  my $reconnector = $self->{reconnector}
+      or confess( "Can't reconnect; reconnector is missing." );
 
-  if ($self->{'dbh'}) {
-    $self->{'dbh'}->disconnect;
-  }
+  $self->{'dbh'}->disconnect if ($self->{'dbh'});
+
   $self->{'dbh'} = &$reconnector()
-      or croak("Can't reconnect; reconnector returned nothing");
+      or confess( "Can't reconnect; reconnector returned nothing." );
   $self->rebless;
   $self->_init if $self->can('_init');
+
   return $self;
 }
 
+## TODO: replace with a single accessor, kill all DVA
 sub get_dbh {
   my $self = shift;
-
-  (ref $self) or ( Carp::confess("Not a class method") );
+  (ref $self) or confess( "Not a class method" );
   return $self->{'dbh'};
 }
 
@@ -188,8 +220,10 @@ sub get_object_at {
   my $self = shift;
   my($oid) = @_;
 
-  my $sth = $self->prepare_execute(q{SELECT px_flat_obj FROM } .$self->{object_table} . q{ WHERE px_oid = ? },
-                         $oid);
+  my $sth  = $self->prepare_execute( q{SELECT px_flat_obj FROM } .
+				     $self->{object_table} .
+				     q{ WHERE px_oid = ? },
+				     $oid );
   my $rows = $sth->fetchall_arrayref();
   $sth->finish;
 
@@ -200,7 +234,7 @@ sub get_object_at {
     return thaw $rows->[0][0];
   }
   else {
-    croak "Too many objects matched OID: $oid";
+    confess( "Too many objects matched OID: $oid" );
   }
 }
 
@@ -216,15 +250,16 @@ sub _delete {
 sub prepare_execute {
   my($self, $sql, @params) = @_;
 
-  my $sth;
-  $sth = $self->prepare_cached($sql);
+  my $sth = $self->prepare_cached($sql);
   for my $param_no ( 0 .. $#params ) {
     my $param_v = $params[$param_no];
     my @param_v = ( ref($param_v) eq 'ARRAY' ) ? @$param_v : $param_v;
     $sth->bind_param( $param_no+1, @param_v);
   }
+
   eval { $sth->execute };
-  Carp::confess $@ if $@;
+  confess( $@ ) if $@;
+
   return $sth;
 }
 
@@ -244,24 +279,24 @@ sub begin_transaction {
   return $self;
 }
 
+## TODO: tran_count is never checked - what are we rolling back to?
 sub rollback_db {
   my $self = shift;
+  my $dbh  = $self->get_dbh;
 
-  my $dbh = $self->get_dbh;
-  if (!$dbh->{AutoCommit}) {
-    $dbh->rollback;
-  }
-  $dbh->{AutoCommit} = 1;
+  $dbh->rollback unless ( $dbh->{AutoCommit} );
+
+  $dbh->{AutoCommit}  = 1;
   $self->{tran_count} = undef;
 }
 
 sub commit {
   my $self = shift;
-  my $dbh = $self->get_dbh;
-  if (!$dbh->{AutoCommit}) {
-    $dbh->commit;
-  }
-  $dbh->{AutoCommit} = 1;
+  my $dbh  = $self->get_dbh;
+
+  $dbh->commit unless ( $dbh->{AutoCommit} );
+
+  $dbh->{AutoCommit}  = 1;
   $self->{tran_count} = undef;
 }
 
@@ -307,50 +342,62 @@ sub _add_to_rootset {
   return $self;
 }
 
-
 sub rootset {
   my $self = shift;
+  # TODO: use Pixie::Name instead of hard-coded text
   my $rows = $self->selectall_arrayref(qq{SELECT px_oid FROM @{[$self->rootset_table]}
 					  WHERE px_oid NOT LIKE '<NAME:PIXIE::\%'}) ;
-  my @ary = map $_->[0], @$rows;
+  my @ary  = map $_->[0], @$rows;
   return wantarray ? @ary : \@ary;
 }
 
 sub working_set_for {
   my $self = shift;
-  my $p = shift;
+  my $p    = shift;
+  # TODO: use Pixie::Name instead of hard-coded text
   my $rows = $self->selectall_arrayref(
     qq{SELECT px_oid FROM @{[$self->object_table]}
        WHERE px_oid NOT LIKE '<NAME:PIXIE::\%' AND
        NOT(px_oid = '@{[$self->object_graph_for($p)->PIXIE::oid]}')});
-
-  my @ary = map $_->[0], @$rows;
+  my @ary  = map $_->[0], @$rows;
   return wantarray ? @ary : \@ary;
 }
 
+## TODO: there must be a better way to do this!
+##       table or row-level locking, perhaps?
 sub lock_object_for {
   my $self = shift;
   my($oid, $pixie, $timeout) = @_;
-  $timeout = 30 unless defined $timeout;
+
+  $timeout = $LOCK_TIMEOUT unless defined $timeout;
   my $lock_holder = $self->locker_for($oid);
   return 0 if $lock_holder eq $pixie->_oid;
+
   my $keep_trying = 1;
+
   local $SIG{ALRM} = sub { $keep_trying = 0 };
   alarm $timeout;
+
   while ($keep_trying) {
     eval {$self->prepare_execute(q{INSERT INTO } . $self->lock_table .
-				 q{ ( px_oid, px_locker )
-				    VALUES ( ?, ? )},
+				 q{ ( px_oid, px_locker ) } .
+				 q{ VALUES ( ?, ? ) },
 				 $oid, $pixie->_oid)};
     last unless $keep_trying && $@;
+    ## TODO: replace this with Time::HiRes::usleep ?
     select undef, undef, undef, rand(2 * 1000);
   }
+
+  ## TODO: restore previous value of alarm?
   alarm 0;
+
   $lock_holder = $self->locker_for($oid);
   unless ($lock_holder eq $pixie->_oid) {
-    die "Cannot lock $oid for $pixie. Lock is held by ", $lock_holder;
+    confess "Cannot lock $oid for $pixie. Lock is held by $lock_holder";
   }
+
   $self->SUPER::lock_object_for($oid, $pixie);
+
   return 1;
 }
 
@@ -358,25 +405,28 @@ sub unlock_object_for {
   my $self = shift;
   my($oid, $pixie) = @_;
   my $pixie_oid = ref($pixie) ? $pixie->_oid : $pixie;
+
   eval { $self->prepare_execute(q{DELETE FROM } . $self->lock_table .
                                 q{ WHERE px_oid = ? AND px_locker = ? },
                                 $oid, $pixie_oid) };
-  die "Couldn't unlock $oid for $pixie_oid: $@" if $@;
+  confess( "Couldn't unlock $oid for $pixie_oid: $@" ) if $@;
+
   if ( my $other_locker = $self->locker_for($oid) ) {
-    die "$oid is locked by another process: $other_locker";
+      confess "Couldn't unlock $oid for $pixie_oid, it's locked by another pixie: $other_locker";
   }
+
   $self->SUPER::unlock_object_for($oid, $pixie);
+
   return 1;
 }
 
 sub locker_for {
   my $self = shift;
   my($oid) = @_;
-  $oid = $oid->px_oid if ref $oid;
-
-  my $sth = $self->prepare_execute(q{SELECT px_locker FROM } . $self->lock_table .
-                                   q{ WHERE px_oid = ? },
-                                   $oid);
+  $oid     = $oid->px_oid if ref $oid;
+  my $sth  = $self->prepare_execute(q{SELECT px_locker FROM } . $self->lock_table .
+				    q{ WHERE px_oid = ? },
+				    $oid);
   my $rows = $sth->fetchall_arrayref();
   $sth->finish;
   if ( @$rows == 0 ) {
@@ -386,15 +436,14 @@ sub locker_for {
     return $rows->[0][0];
   }
   else {
-    croak "Too many objects matched OID: $oid";
+    confess( "Too many objects matched OID: $oid" );
   }
 }
 
 sub release_all_locks {
     my $self = shift;
     # Ensure a connection
-    $self->{dbh} = &{$self->{reconnector}}
-        unless $self->{dbh};
+    $self->{dbh} = &{$self->{reconnector}} unless $self->{dbh};
     $self->SUPER::release_all_locks;
 }
 
@@ -403,4 +452,5 @@ sub DESTROY {
     $self->release_all_locks;
     $self->SUPER::DESTROY;
 }
+
 1;

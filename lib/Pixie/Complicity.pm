@@ -1,5 +1,7 @@
 package Pixie::Complicity;
 
+our $VERSION = '2.08_02';
+
 $Pixie::Complicity::Loaded++;
 
 =head1 NAME
@@ -115,7 +117,7 @@ Another boolean. Used by Pixie to know whether an object in this class
 should be immediately fetched in cases where Pixie would normally use
 a Pixie::Proxy object to provide deferred loading. You generally want
 to use this for objects that get accessed directly (you naughty
-encapsulation violator you), because a Pixie::Proxy only fetches the
+encapsulation violator you), because a L<Pixie::Proxy> only fetches the
 real thing when it notices a method call to the object.
 
 =item px_as_rawstruct
@@ -164,8 +166,8 @@ sub px_is_storable {
 }
 
 sub px_class {
-  my $proto = shift;
-  return ref($proto) || $proto
+  my $class = shift;
+  return ref($class) || $class
 }
 
 sub px_oid { $_[0]->PIXIE::oid };
@@ -192,8 +194,8 @@ sub px_as_rawstruct {
 }
 
 sub px_empty_new {
-  my $proto = shift;
-  $proto->new;
+  my $class = shift;
+  $class->new;
 }
 
 sub px_do_final_restoration {

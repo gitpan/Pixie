@@ -3,6 +3,15 @@
 =====================
 
 -------------------------------------------------------------------------------
+Subclass Pixie to handle Lock Strategies?
+-------------------------------------------------------------------------------
+
+Subclass Pixie & related classes to override methods with Locking strategy?
+Would move 'get_with_strategy' and friends to subclasses, and perhaps simplify
+code.
+
+
+-------------------------------------------------------------------------------
 Locking
 -------------------------------------------------------------------------------
 

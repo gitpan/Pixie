@@ -7,11 +7,10 @@ require Exporter;
 require DynaLoader;
 require AutoLoader;
 
-@ISA = qw(Exporter DynaLoader);
-
-@EXPORT = qw( );
+@ISA       = qw(Exporter DynaLoader);
+@EXPORT    = qw( );
 @EXPORT_OK = qw(px_get_info px_set_info);
-$VERSION = '0.01';
+$VERSION   = '2.08_02';
 
 bootstrap Pixie::Info $VERSION;
 

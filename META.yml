@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name: Pixie
-version: 2.08_01
+version: 2.08_02
 author: ~
 abstract: The magic data pixie
 license: perl
@@ -16,85 +16,97 @@ build_requires:
   Module::Build: 0.2
   Test::Class: 0.03
   Test::Exception: 0.03
+  Test::MockObject: 0.01
   Test::More: 0.01
 provides:
   PIXIE:
     file: lib/Pixie/FinalMethods.pm
+    version: 2.08_02
   Pixie:
     file: lib/Pixie.pm
-    version: 2.08_01
+    version: 2.08_02
   Pixie::BDB::Rootset:
     file: lib/Pixie/Store/BerkeleyDB.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Complicity:
     file: lib/Pixie/Complicity.pm
+    version: 2.08_02
   Pixie::FinalMethods:
     file: lib/Pixie/FinalMethods.pm
+    version: 2.08_02
   Pixie::Info:
     file: lib/Pixie/Info.pm
-    version: 0.01
+    version: 2.08_02
   Pixie::LiveObjectManager:
     file: lib/Pixie/LiveObjectManager.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::LockStrat:
     file: lib/Pixie/LockStrat.pm
+    version: 2.08_02
   Pixie::LockStrat::Exclusive:
     file: lib/Pixie/LockStrat/Exclusive.pm
+    version: 2.08_02
   Pixie::LockStrat::Null:
     file: lib/Pixie/LockStrat/Null.pm
+    version: 2.08_02
   Pixie::LockStrat::ReadOnly:
     file: lib/Pixie/LockStrat/ReadOnly.pm
+    version: 2.08_02
   Pixie::Name:
     file: lib/Pixie/Name.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Object:
     file: lib/Pixie/Object.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::ObjectGraph:
     file: lib/Pixie/ObjectGraph.pm
+    version: 2.08_02
   Pixie::ObjectInfo:
     file: lib/Pixie/ObjectInfo.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Proxy:
     file: lib/Pixie/Proxy.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Proxy::ARRAY:
     file: lib/Pixie/Proxy.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Proxy::ARRAY::Overloaded:
     file: lib/Pixie/Proxy.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Proxy::HASH:
     file: lib/Pixie/Proxy.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Proxy::HASH::Overloaded:
     file: lib/Pixie/Proxy.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Proxy::Overloaded:
     file: lib/Pixie/Proxy.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Store:
     file: lib/Pixie/Store.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Store::BerkeleyDB:
     file: lib/Pixie/Store/BerkeleyDB.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Store::DBI:
     file: lib/Pixie/Store/DBI.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Store::DBI::Default:
     file: lib/Pixie/Store/DBI/Default.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Store::DBI::Mysql:
     file: lib/Pixie/Store/DBI/Mysql.pm
-    version: 2.06
+    version: 2.08_02
   Pixie::Store::DBI::Pg:
     file: lib/Pixie/Store/DBI/Pg.pm
+    version: 2.08_02
   Pixie::Store::DBI::SQLite:
     file: lib/Pixie/Store/DBI/SQLite.pm
+    version: 2.08_02
   Pixie::Store::Memory:
     file: lib/Pixie/Store/Memory.pm
-    version: 2.06
+    version: 2.08_02
   UNIVERSAL:
     file: lib/Pixie/Complicity.pm
+    version: 2.08_02
 generated_by: Module::Build version 0.25

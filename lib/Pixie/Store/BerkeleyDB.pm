@@ -1,59 +1,115 @@
+=head1 NAME
+
+Pixie::Store::BerkeleyDB -- a Berkeley DB Pixie store.
+
+=head1 SYNOPSIS
+
+  use Pixie;
+  # BerkeleyDB stores don't need to be deployed
+  my $px = Pixie->new->connect( 'bdb:path/to/store.bdb' );
+
+=head1 DESCRIPTION
+
+Implements a Berkeley DB store for Pixie.
+
+=cut
+
 package Pixie::Store::BerkeleyDB;
 
-use Storable qw/nfreeze thaw/;
+use strict;
+use warnings;
+
+use Storable qw( nfreeze thaw );
 use BerkeleyDB;
 use File::Spec;
 
-our $VERSION="2.06";
+use base qw( Pixie::Store );
 
-use base qw/Pixie::Store/;
+our $VERSION = "2.08_02";
 
-sub new {
-  my $proto = shift;
-  my $self = bless { db => undef }, $proto;
-  $self->init;
+sub init {
+  my $self    = shift;
+  $self->{db} = undef;
   return $self;
 }
 
-sub init { $_[0] }
+## TODO: create a new object here & return it
+sub deploy {
+  my $class = shift;
+  my $dsn   = shift;
+  $dsn      =~ s/^(?:bdb:)?/bdb:/;
+  $class->_create_db( $dsn );
+  return $class;
+}
 
 sub connect {
   my $self = shift;
-  my($vol, $dir, $file) = File::Spec->splitpath( shift );
-  $dir ||= File::Spec->curdir;
+  my $dsn  = shift;
+  $dsn     =~ s/^(?:bdb:)?/bdb:/;
+  $self    = $self->new unless ref $self;
+  $self->db( $self->_create_db( $dsn ) );
+}
 
-  $self = $self->new unless ref $self;
+sub get_path_from_dsn {
+    my $class  = shift;
+    my $dsn    = shift;
+    my ($path) = ($dsn =~ /^bdb:(.+)$/);
+    $path;
+}
 
-  $self->db(BerkeleyDB::Hash->new
-            (
-             -Env =>
-             BerkeleyDB::Env->new( -Home => File::Spec->catpath($vol, $dir, ''),
-                                   -Flags => (DB_CREATE | DB_INIT_LOCK |
-                                              DB_INIT_MPOOL |
-                                              DB_INIT_TXN | DB_RECOVER), ),
-             -Filename => $file,
-             -Flags => DB_CREATE, ));
-  return $self;
+sub _create_db {
+  my $class = shift;
+  my $path  = $class->get_path_from_dsn( shift );
+  my $db    = $path
+    ? $class->_create_db_file( $path )
+    : $class->_create_db_in_memory;
+  croak( "error connecting to BerkeleyDB at [$path]: $BerkeleyDB::Error" )
+    unless $db;
+  return $db;
+}
+
+sub _create_db_file {
+    my $class = shift;
+    my $path  = shift;
+
+    my($vol, $dir, $file) = File::Spec->splitpath( $path );
+    $dir ||= File::Spec->curdir;
+
+    unless (-d $dir) {
+	require File::Path;
+	File::Path::mkpath( $dir );
+    }
+
+    BerkeleyDB::Hash->new
+      (
+       -Filename => $file,
+       -Flags    => DB_CREATE,
+       -Env => BerkeleyDB::Env->new(
+				    -Home => File::Spec->catpath($vol, $dir, ''),
+				    -Flags => ( DB_CREATE | DB_INIT_LOCK |
+						DB_INIT_MPOOL |
+						DB_INIT_TXN | DB_RECOVER ),
+				   ),
+      );
+}
+
+sub _create_db_in_memory {
+  my $class = shift;
+  BerkeleyDB::Hash->new( -Flags => DB_CREATE, );
 }
 
 sub db {
   my $self = shift;
-
   if (@_) {
     my $db = shift;
-    die "Pixie::Store::BerkeleyDB::db must be an instance of BerkeleyDB::Common"
-        unless defined($db) && $db->isa('BerkeleyDB::Common');
+    croak( "db must be a BerkeleyDB::Common" )
+      unless UNIVERSAL::isa( $db, 'BerkeleyDB::Common' );
     $self->{db} = $db;
     return $self;
   }
   else {
-    return $self->{db} ||= $self->make_in_memory_db;
+    return $self->{db} ||= $self->_create_db_in_memory;
   }
-}
-
-sub make_in_memory_db {
-  my $self = shift;
-  BerkeleyDB::Hash->new( -Flags => DB_CREATE, );
 }
 
 sub store_at {
@@ -157,3 +213,24 @@ sub new { bless {}, $_[0] }
 sub keys { keys %{$_[0]} }
 
 1;
+
+__END__
+
+=head1 SEE ALSO
+
+L<Pixie>, L<Pixie::Store::DBI>, L<BerkeleyDB>
+
+=head1 AUTHORS
+
+James Duncan <james@fotango.com>, Piers Cawley <pdcawley@bofh.org.uk>
+and Leon Brocard <acme@astray.com>.
+
+Docs by Steve Purkis <spurkis@cpan.org>.
+
+=head1 COPYRIGHT
+
+Copyright (c) 2002-2004 Fotango Ltd
+
+This software is released under the same license as Perl itself.
+
+=cut

@@ -1,5 +1,3 @@
-package Pixie::FinalMethods;
-
 =head1 NAME
 
 Pixie::FinalMethods - 'fixed' methods that Pixie uses
@@ -26,20 +24,28 @@ than others.
 
 =cut
 
+package Pixie::FinalMethods;
+
 $Pixie::FinalMethods::Loaded++;
 
 package PIXIE;
 
 use Pixie::Info;
+use Pixie::ObjectInfo;
 
+our $VERSION = '2.08_02';
 
+## TODO: there must be a better way to do this...
+##       use Scalar::Util's refaddr() ?
 sub address {
   my $self = shift;
   my $orig_class = ref($self);
 
+  ## rebless in-case orig_class uses overload
   bless $self, 'Class::Whitehole';
   my $addr = 0 + $self;
   bless $self, $orig_class;
+
   return $addr;
 }
 

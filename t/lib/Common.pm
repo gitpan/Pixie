@@ -1,46 +1,73 @@
 package Common;
 
-our $USE_BDB;
-our $USE_SQLITE;
+use strict;
+use warnings;
+
+our $BDB_AVAIL;
+our $SQLITE_AVAIL;
 our $TEST_DIR    = File::Spec->catdir(qw( t tmp ));
-our $BDB_FILE    = File::Spec->catfile($TEST_DIR, 'objects.bdb' );
-our $SQLITE_FILE = File::Spec->catfile($TEST_DIR, 'sqlite.db' );
-our @test_stores;
+our $BDB_FILE    = File::Spec->catfile($TEST_DIR, 'bdb', 'objects.bdb' );
+our $SQLITE_FILE = File::Spec->catfile($TEST_DIR, 'sqlite', 'sqlite.db' );
+our $BDB_DSN     = "bdb:$BDB_FILE";
+our $SQLITE_DSN  = "dbi:SQLite:dbname=$SQLITE_FILE";
+our @dsn;
 
 BEGIN {
   eval { require BerkeleyDB; };
-  $USE_BDB = $@ ? 0 : 1;
+  $BDB_AVAIL = $@ ? 0 : 1;
   eval { require DBD::SQLite; };
-  $USE_SQLITE = $@ ? 0 : 1;
+  $SQLITE_AVAIL = $@ ? 0 : 1;
 }
 
 sub test_stores {
   my $class = shift;
-  unless (@specs) {
-    push @specs, 'memory';
-    push @specs, $class->bdb_store if $USE_BDB;
-    push @specs, $class->sqlite_store if $USE_SQLITE;
-    push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if
+  unless (@dsn) {
+    push @dsn, 'memory';
+    push @dsn, $class->bdb_store if $BDB_AVAIL;
+    push @dsn, $class->sqlite_store if $SQLITE_AVAIL;
+    push @dsn, split / +/, $ENV{PIXIE_TEST_STORES} if
       $ENV{PIXIE_TEST_STORES};
   }
-  return @specs;
+  return @dsn;
+}
+
+sub mysql_stores {
+    my $class = shift;
+    grep {/^dbi:mysql/i} $class->test_stores;
+}
+
+sub pg_stores {
+    my $class = shift;
+    grep {/^dbi:pg/i} $class->test_stores;
+}
+
+sub sqlite_stores {
+    my $class = shift;
+    grep {/^dbi:sqlite/i} $class->test_stores;
+}
+
+sub bdb_stores {
+    my $class = shift;
+    grep {/^bdb/i} $class->test_stores;
 }
 
 sub bdb_store {
-  my $class = shift;
-  $class->create_test_dir;
-  return "bdb:$BDB_FILE";
+    my $class = shift;
+#    $class->create_test_dir; # TODO: no longer needed
+    $BDB_DSN;
 }
 
 sub sqlite_store {
   my $class = shift;
-  my $dsn   = "dbi:SQLite:dbname=$SQLITE_FILE";
-  require Pixie::Store::DBI;
-  unless (-e $SQLITE_FILE) {
-      $class->create_test_dir;
-      Pixie::Store::DBI->deploy( $dsn );
-  }
-  return $dsn
+  $SQLITE_DSN;
+#  my $dsn   = $SQLITE_DSN;
+  # TODO: no longer needed?
+#  require Pixie::Store::DBI;
+#  unless (-e $SQLITE_FILE) {
+#      $class->create_test_dir;
+#      Pixie::Store::DBI->deploy( $dsn );
+#  }
+#  return $dsn
 }
 
 sub create_test_dir {

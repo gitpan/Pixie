@@ -24,6 +24,9 @@ SYNOPSIS
       # Delete it
       $pixie->delete( $cookie ) || warn "eek!";
 
+      # some stores need deploying before you can use them:
+      $pixie = Pixie->deploy( 'dbi:mysql:dbname=px_test' );
+
 DESCRIPTION
     Pixie is yet another object persistence tool. The basic goal of Pixie is
     that it should be possible to throw any object you want at a data pixie
@@ -58,12 +61,19 @@ AVAILABLE STORE TYPES
     At the time of writing the following stores were available:
 
     Memory
+        Simple memory store, good for testing. See Pixie::Store::Memory.
+
           $pixie->connect( 'memory' );
 
     Berkeley DB
+        A Berkeley DB store, also good for testing (especially if you want
+        to store values across tests). See Pixie::Store::BerkeleyDB.
+
           $pixie->connect( "bdb:$path_to_dbfile" );
 
-    DBI See DBI and individual DBD drivers for details on dbi's DSN specs.
+    DBI DBI-based stores are good for production. See Pixie::Store::DBI and
+        subclasses, and DBI for details on DSN specs to use.
+
         In general:
 
           $pixie->connect( $dbi_spec, %args );
@@ -75,7 +85,7 @@ AVAILABLE STORE TYPES
           $pixie->connect( 'dbi:Pg:dbname=test;user=foo;pass=bar' );
 
     See Pixie::Store and its sub-classes for more details on the available
-    types of stores and the DSN specs to use.
+    types of stores and the DSN's to use.
 
 CONSTRUCTOR
     $px = Pixie->new
@@ -83,10 +93,15 @@ CONSTRUCTOR
         you can really do anything.
 
 METHODS
+    $px->deploy( $dsn [, @args ] )
+        Deploy a Pixie store to the specified $dsn. This is not required for
+        all types of store (see Pixie::Store and subclasses), but deploying
+        to those stores won't hurt so if you want to make your code generic
+        then go for it.
+
     $px->connect( $dsn [, @args ] )
-        Connect the pixie to a store specified by $dsn (data source name).
-        Note that you may need to initialize the store before connecting to
-        it.
+        Connect the pixie to a store specified by $dsn. Note that you may
+        need to deploy() the store before connecting to it.
 
     $cookie = $px->insert( $object );
         Stores the $object and returns a $cookie which you can use to
@@ -95,7 +110,7 @@ METHODS
     $obj = $px->get( $cookie )
         Get the object associated with $cookie from the pixie's store.
 
-    $px->delete( $obj_or_cookie )
+    $px->delete( $obj || $cookie )
         Delete an object from the pixie's store given a $cookie, or the
         $object itself.
 
@@ -104,7 +119,8 @@ METHODS
         retrieve it in the future using get_object_named().
 
         Returns the cookie of the "Pixie::Name" associated with the $object,
-        though this usage is deprecated and will likely in the next release.
+        though this usage is deprecated and will likely be removed in the
+        next release.
 
     $obj = $px->get_object_named( $name )
         Gets the named object from the pixie's store.
@@ -160,7 +176,7 @@ AUTHORS
     Steve Purkis <spurkis@cpan.org> is helping to maintain the module.
 
 COPYRIGHT
-    Copyright 2002 Fotango Ltd
+    Copyright (c) 2002-2004 Fotango Ltd.
 
     This software is released under the same license as Perl itself.
 

@@ -15,8 +15,9 @@ Build.PL - Build script generator for C<Pixie>
 
 use strict;
 use warnings;
-use File::Spec;
+
 use Module::Build;
+use File::Spec::Functions;
 
 my $SUBCLASS_CODE = join( '', <DATA> );
 
@@ -29,10 +30,11 @@ my $class = Module::Build->subclass
 my $build = $class->new
   (
    module_name        => 'Pixie',
-   dist_version_from  => 'lib/Pixie.pm',
+   dist_version_from  => catfile(qw( lib Pixie.pm )),
    create_makefile_pl => 'passthrough',
    create_readme      => 1,
    license            => 'perl',
+   script_files       => catfile(qw( bin px_deploy )),
    requires           => {
 			  'perl'          => '5.8.0',
 			  'DBI'           => '1.30',
@@ -43,10 +45,11 @@ my $build = $class->new
 			  'Data::UUID'    => 0.01,
 		         },
    build_requires     => {
-			  'Test::More'      => 0.01,
-			  'Test::Class'     => 0.03,
-			  'Test::Exception' => 0.03,
-			  'Module::Build'   => 0.20,
+			  'Test::More'       => 0.01,
+			  'Test::MockObject' => 0.01,
+			  'Test::Class'      => 0.03,
+			  'Test::Exception'  => 0.03,
+			  'Module::Build'    => 0.20,
 		         },
   );
 
@@ -56,17 +59,18 @@ die "Pixie requires a working Data::Dumper::Dumpxs" unless (defined &Data::Dumpe
 
 unless ($ENV{PIXIE_TEST_STORES}) {
   warn <<'EOW';
+
 You have not set the PIXIE_TEST_STORES environment variable.
 
-If you want Pixie to run tests against any RDBMSes you may have installed you
-should set PIXIE_TEST_STORES with a series of space-separated DBI specs, ie:
+If you want Pixie to run tests against any RDBMS's you should set it with a
+series of space-separated Pixie DSN specs, ie:
 
     PIXIE_TEST_STORES='dbi:mysql:dbname=test;user=test dbi:...'
 
 Pixie will create tables with the prefix 'px_' in each of the databases given,
 and will empty them as needed (so do *NOT* run the tests on a live database!).
 
-If you do not have any RDBMSes to test against, ignore this message.
+Ignore this message if you do not want to test against any RDBMS's.
 
 EOW
 }

@@ -2,13 +2,13 @@ package Pixie::ObjectInfo;
 
 use strict;
 
-our $VERSION="2.06";
-
-use Scalar::Util qw/weaken/;
-
+use Carp qw( croak confess );
 use Data::UUID;
-use Carp;
+use Scalar::Util qw( weaken );
 
+our $VERSION = "2.08_02";
+
+# TODO: Pixie::Object has a constructor - use it?
 sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
@@ -18,6 +18,7 @@ sub new {
   return $self;
 }
 
+# TODO: rename 'new_from_object'
 sub make_from {
   my $proto = shift;
   my $obj = shift;
@@ -31,10 +32,12 @@ sub make_from {
 
 sub init {
   my $self = shift;
-  $self->_oid;
+  $self->_oid; # TODO: rename _create_oid for readability?
   return $self;
 }
 
+# TODO: split this up into _create_oid()
+# (even better would be to make a new class called Pixie::OID)
 {
   my $uuid_maker;
   sub _oid {
@@ -87,7 +90,7 @@ sub pixie {
 
 sub pixie_id {
   my $self = shift;
-  $self->{pixie}->_oid || '';
+  $self->{pixie}->_oid || '' if $self->{pixie};
 }
 
 sub px_insertion_thaw { shift }

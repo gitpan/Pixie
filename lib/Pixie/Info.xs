@@ -22,7 +22,7 @@ PREINIT:
     MGVTBL *vtable = 0;
 CODE:
     if (!SvROK(ref)) {
-        croak("px_get_info needs a reference!");
+        croak("px_set_info needs a reference!");
     }
 
     sv  = (SV*) SvRV(ref);

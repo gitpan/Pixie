@@ -15,7 +15,7 @@ be accessed with no passwords.)
 You'll need to set up the initial tables that Pixie needs though, to
 do this, after you've done the 'make', do
 
-   $ perl -Mblib ./deploy_pixie.pl DBISPEC USER PASS
+   $ perl -Mblib bin/px_deploy <DBISPEC> [ <USER> [ <PASS> ] ]
 
 Which will set up an appropriate set of tables. Note that you can
 specify a username and password here, in case you need extra

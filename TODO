@@ -8,23 +8,26 @@ High Priority
 
 Clean up Test Suite
    o	need to flesh out test suite before work on the codebase can be done
-   o    resolve diffs between t/lib/Sunnydale.pm's Person and t/lib/Person.pm
-   o    use Test::More 'no_plan'; # save us from maths!
-   o    rename these tests:
-          o     09deep.class.t --> 10deep_class.t, bump others up
-          o     13concurrency.t --> 13dbi_concurrency.t
-   o    rename all tests: 08xyz.t --> 08_xyz.t
-   o    re-order all tests so that more basic tests are done first.
+   o	see t/README & t/TODO
 
 Refactoring
     o	Code cleanup
     o	use Carp::confess()
+    o	s/proto/class/
 
 Fix Locking
     o	see docs/working-notes.txt
+    o	need to fix DBI Store's lock_object_for() to do locking in the DB
+	where possible.  Also what to do with locks when pixie's go away?
+	This is largest source of deadlock at the moment.
 
 Object Graph Table
     o	see docs/working-notes.txt
+
+Deploy from Pixie.pm
+    o	Pixie->is_deployed( $dsn );
+
+Finish replacing Pixie::Info with Scalar::Footnote
 
 -------------------------------------------------------------------------------
 Medium Priority
@@ -32,21 +35,59 @@ Medium Priority
 
 Fix Bugs
     o	Recursive Stuctures Bug
-    o	Use MEDIUMBLOB px_flat_obj for mysql
+    o	check Pixie::Proxy::Overloaded, make sure it's working as expected
+    o	what happens when Pixie goes away and is unable to unlock items?
+
+Refactoring
+    o	use strict & warnings in all classes
+    o	find a way to split up Pixie.pm
+		object tree manipulation is a good candidate.
+    o	move class methods from Pixie::Name --> Pixie
+    o	Subclass Pixie to handle Lock Strategies? (see docs/working-notes.txt)
+    o	write a better Pixie::ObjectInfo->address
+    o	use same type of accessors all the way through
+    o	inherit from Pixie::Object all the way through
+    o	split up Pixie::Proxy into subclasses & Pixie::Proxy::Base
+    o	split off Pixie::Store::Base, maybe Pixie::StoreFactory ?
+    o	standardize Store methods: store_at, get_object_at, delete_at ?
+	maybe go with fetch/store/remove_object_at ?
+	also: standardize what subclasses should deal with - ie: should
+	they need to know about PIXIE::oid?
+    o	looks like there's a lot of repeated code in the various Stores
+    o	write Pixie::Rootset
+    o	deploy() should return a new pixie connected to the store.
+    o	timeouts should be part of a locking strategy
+    o	use MySQL's InnoDB tables & transactions vs 'GET_LOCK'?
+    o	Pixie::ObjHolder should have it's own class (Pixie::ObjectHolder ?)
+
+Is 'px_lock_info' Needed?
+    o	can't we do row-level locking?
+
+Optimizations
+    o	Use Data::Structure::Util::get_blessed instead of Data::Dumper to
+	serialize objects before storing them
+    o	Use MEDIUMBLOB px_flat_obj for mysql (for large objects)
+    o	prepare most common statements in DBI stores
+
+OID's should be objects
+    o	Pixie::OID
+    o	this will make them trivial to recognize, and will remove a limiting
+	dependency on Data::UUID
+    o	of course, they could always be strings like:
+		<OID:...>
+		<NAME:...>
+	heck, they could be both.  blessed scalar refs even.
 
 Refactor API
     o	introduce store(), fetch(), and remove()
     o	deprecate insert(), get(), get_object_named() and delete()
 
 Hide The Current Pixie
-    o	hide pixie with px_set_info() in Pixie::Proxy::Hash & friends.
+    o	hide pixie with Scalar::Footnote
 
 Pod
     o	start calling storage specs 'data source names (DSN)'
 	(everybody knows this term)
-
-Misc
-   o    move deploy_pixie.pl --> bin/px_deploy[.pl]
 
 Polymorphic Dispatch w/ Heritable::Types
     o	Get rid of case statements that work on the reftype of the object, and
@@ -54,7 +95,6 @@ Polymorphic Dispatch w/ Heritable::Types
 
 Garbage Collection
     o	see docs/working-notes.txt
-
 
 -------------------------------------------------------------------------------
 Low Priority
@@ -64,9 +104,6 @@ Bind Name to an Existing Object
     o	$px->bind_name( 'my name' => $oid );
 
 Index By Class
-
-Spin-Off Pixie::Info
-    o	as Object::Info? Object::HiddenInfo ?
 
 Rootset Tracking
     o	what kind of tracking?

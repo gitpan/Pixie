@@ -1,0 +1,97 @@
+=======================
+ Pixie Test Suite Todo
+=======================
+
+55-57 DBI Stores:
+    o	test verify_connection(), reconnect(), clear()
+
+xx_pixie.t
+
+---------------------------------------------------------------------------
+   o    resolve diffs between t/lib/Sunnydale.pm's Person and t/lib/Person.pm
+   o    use Test::More 'no_plan'; # save us from maths!
+   o    re-order all tests so that more basic tests are done first.
+
+Review tests 70-90 and remove redundant tests.
+
+Remove dependency on Test::Class. ?
+
+Consider renaming 'Common' to 'Framework'.
+Add UNIVERSAL::px_is_managed to framework, or Pixie::Complicity?
+
+
+---------------------------------------------------------------------------
+00simple.t  (71_smoke_test.t)
+    +	smoke tests
+    +	for all defined stores (see Common.pm)
+    +	uses Test::Class
+
+01memory.t (72_is_managed.t)
+    +	a bunch of px_is_managed tests
+    +	for all defined stores (so horribly named)
+
+02nonhash.t (73_array_objs.t)
+    +	array object. only seems to use memory store.
+
+03berkeley.t (80_bdb_store.t)
+    +	tests bdb store, not sure what's different from 00simple.t
+
+04array.t (83_array.t)
+    ?	weird tests using Springfield.pm, no idea what it does at a glance.
+
+05flatarray.t (84_flat_array.t)
+    ?	weird tests using Springfield.pm, no idea what it does at a glance.
+
+06flathash.t (85_flat_hash.t)
+    ?	weird tests using Springfield.pm, no idea what it does at a glance.
+
+07cache.t (86_cache.t)
+    +	based on Sunnydale.pm, a lot of leaktests, making sure oid's are right
+	and a lot of 'as_string' overload tests of the framework
+
+08names.t (74_names.t)
+    +	binding names to objs & retreiving them
+
+09deep.t (75_deep.t)
+    +	store a 'deep' object (ie: obj nested within an obj)
+
+09deep.class.t (76_deep_class.t)
+    +	same as 'deep' only with more 'is_managed' tests
+    +	uses Test::Class
+
+10safeoids.t (77_safe_oids.t)
+    +	creates a 'SimpleArray', does some 'is_managed' tests, and checks to see
+    	if Pixie's copy is the same as a deep copy of the obj.
+    +	uses Test::Class
+
+11dbistore.t (81_dbi_stores.t)
+    +	generic tests for all DBI stores defined
+    +	uses Test::Class
+
+12complicity.t (87_complicity.t)
+    +	for all defined stores
+    +	tests different types of closures
+
+13concurrency.t (82_dbi_concurrency.t)
+    +	tests locking
+    +	for all defined DBI stores
+    +	really needs updating to reduce timeouts
+
+15rootset.t (78_rootset.t)
+    +	simple test, checks contents of the 'rootset'
+    +	for all defined stores
+    +	uses Test::Class
+
+16workingset.t (79_workingset.t)
+    +	tests $px->neighbours, $px->rootset, $px->live_set, $px->working_set
+    +	for all defined stores except 'memory'
+    +	uses Test::Class
+
+
+98compile.t (98_compile.t)
+    +	
+
+99pod.t (99_pod.t)
+    +	
+
+xx_pixie.t

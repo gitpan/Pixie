@@ -1,0 +1,30 @@
+==================
+ Pixie Test Suite
+==================
+
+The test framework is organized as follows:
+
+    t/*.t	test scripts
+    t/lib/	test classes & common code
+    t/tmp/	temporary stuff that should go away with 'make clean'
+    t/TODO	todo notes
+
+In general, we like to test each class individually and we try to take a
+ground-up kind of approach (test classes that are used by other classes
+first).
+
+The tests are grouped as follows:
+
+    00 - 09	framework or very basic tests
+    10 - 29	misc. supporting objects
+    30 - 39	proxy objects
+    40 - 49	lock strategies
+    50 - 59	storage backends
+    60 - 69	pixie & friends
+    70 - 89	full system tests
+    95 - 99	admin
+
+Don't be afraid to re-number tests or re-arrange the framework if it makes
+sense to.
+
+-Steve Purkis
