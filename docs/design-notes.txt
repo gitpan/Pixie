@@ -1,0 +1,30 @@
+====================
+ Pixie Design Notes
+====================
+
+-------------------------------------------------------------------------------
+Pixie::Proxy & encapsulation
+-------------------------------------------------------------------------------
+
+SP> As a user, it's annoying to dump an object proxied by Pixie -- you get
+all this stuff you didn't expect to get.  But proxying is so goddarn
+useful, so I started thinking of a way to do proxying while allowing
+people to break encapsulation.  Here's what I've come up with:
+
+1. Hide the current pixie in Pixie::Proxy::Hash & co. with px_set_info.
+
+Not a full-blown solution really, but it should be relatively easy to
+implement and at least when the user tries to dump their objects they
+won't get the entire pixie dumped to the screen.  Which is a step in
+the right direction.
+
+2. Use tie() in the Proxy object to detect the breaking of
+   encapsulation.
+
+PC> This is what Tangram does. For reasons that escape me now, there are
+some problems with it though. Mostly to do with untying things later
+if memory serves.
+
+
+__
+EOF

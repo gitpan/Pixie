@@ -1,47 +1,93 @@
+=================
+ Pixie Todo List
+=================
 
-Todo List for Pixie:
+-------------------------------------------------------------------------------
+High Priority
+-------------------------------------------------------------------------------
 
-1) Locking
-2) Hooks
-3) Rootset tracking
-4) Index by Class
-5) Generic Indexing
-6) GC
+Clean up Test Suite
+   o	need to flesh out test suite before work on the codebase can be done
+   o    resolve diffs between t/lib/Sunnydale.pm's Person and t/lib/Person.pm
+   o    use Test::More 'no_plan'; # save us from maths!
+   o    rename these tests:
+          o     09deep.class.t --> 10deep_class.t, bump others up
+          o     13concurrency.t --> 13dbi_concurrency.t
+   o    rename all tests: 08xyz.t --> 08_xyz.t
+   o    re-order all tests so that more basic tests are done first.
+
+Refactoring
+    o	Code cleanup
+    o	use Carp::confess()
+
+Fix Locking
+    o	see docs/working-notes.txt
+
+Object Graph Table
+    o	see docs/working-notes.txt
+
+-------------------------------------------------------------------------------
+Medium Priority
+-------------------------------------------------------------------------------
+
+Fix Bugs
+    o	Recursive Stuctures Bug
+    o	Use MEDIUMBLOB px_flat_obj for mysql
+
+Refactor API
+    o	introduce store(), fetch(), and remove()
+    o	deprecate insert(), get(), get_object_named() and delete()
+
+Hide The Current Pixie
+    o	hide pixie with px_set_info() in Pixie::Proxy::Hash & friends.
+
+Pod
+    o	start calling storage specs 'data source names (DSN)'
+	(everybody knows this term)
+
+Misc
+   o    move deploy_pixie.pl --> bin/px_deploy[.pl]
+
+Polymorphic Dispatch w/ Heritable::Types
+    o	Get rid of case statements that work on the reftype of the object, and
+	switch to using polymorphic dispatch with Heritable::Types instead.
+
+Garbage Collection
+    o	see docs/working-notes.txt
 
 
-==== NOTES ON THE ABOVE ARE BELOW HERE ====
+-------------------------------------------------------------------------------
+Low Priority
+-------------------------------------------------------------------------------
 
-LOCKING
-=======
+Bind Name to an Existing Object
+    o	$px->bind_name( 'my name' => $oid );
 
-1) a lock store goes at the backend.
-2) locking achieved via $D::D::Toaster
-use Data::Dumper;
+Index By Class
 
-$Data::Dumper::Toaster = 'main::mymethod';
-my $data = bless( {
-                        locked => 1,
-                        oid  => '120479a717f9712341214e',
-                        some => 'data',
-                  }, 'MyObject');
+Spin-Off Pixie::Info
+    o	as Object::Info? Object::HiddenInfo ?
 
-my $dat = Dumper( $data );
-print $dat;
-print Dumper( eval $dat );
+Rootset Tracking
+    o	what kind of tracking?
 
-sub mymethod {
-  my $self = shift;
-  print "Locking $self\n";
-  if (!$self->{locked}) {
-    $self->{ locked } = 1;
-  } else {
-    return bless( { masq => { id => $self->{oid} } }, "LOCKER" );
-  }
-  return $self;
-}
+Hooks
+    o	what kind of hooks?
+
+Check Existing Tables on Deploy
+    o	DBI::Default->deploy should check for existing tables.
 
 
-3) lock on gets
-4) hang 'Lock Cleaner' objects inside other objects that clear locks on DESTROY
+-------------------------------------------------------------------------------
+Nice To Have
+-------------------------------------------------------------------------------
+
+Generic Indexing
+
+Formalize Error Handling?
+    o	with the Error or Exception module?
+    o	write-up some docs on error handling with Pixie.
 
 
+__
+EOF

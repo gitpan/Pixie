@@ -1,0 +1,142 @@
+=====================
+ Pixie Working Notes
+=====================
+
+-------------------------------------------------------------------------------
+Locking
+-------------------------------------------------------------------------------
+
+1) a lock store goes at the backend.
+2) locking achieved via $D::D::Toaster
+
+	use Data::Dumper;
+
+	$Data::Dumper::Toaster = 'main::mymethod';
+	my $data = bless( {
+                        locked => 1,
+                        oid  => '120479a717f9712341214e',
+                        some => 'data',
+                  }, 'MyObject');
+
+	my $dat = Dumper( $data );
+	print $dat;
+	print Dumper( eval $dat );
+
+	sub mymethod {
+	  my $self = shift;
+	  print "Locking $self\n";
+	  if (!$self->{locked}) {
+	    $self->{ locked } = 1;
+	  } else {
+	    return bless( { masq => { id => $self->{oid} } }, "LOCKER" );
+	  }
+	  return $self;
+	}
+
+3) lock on gets
+4) hang 'Lock Cleaner' objects inside other objects that clear locks on DESTROY
+
+
+-------------------------------------------------------------------------------
+Object Graph Table
+-------------------------------------------------------------------------------
+
+PC> I'm working on a Postgres backend that has a separate graph table so
+ObjectGraphs won't actually get stored as a first class objects any
+more.
+
+SP> TBH, I'm not entirely sure how they work at the moment - haven't
+looked that far under the hood.  But I have seen a bunch of
+exception-handling code to do with ObjectGraphs, so I'm assuming you
+mean that will go away and they'll be trated as normal objects?
+
+PC> More that they'll stop existing as objects. ObjectGraphs are what
+gets used to do garbage collection on the database you see. By moving
+them out into a special table, the special case code will actually
+get simpler (I don't have to worry about dealing with the rootset,
+and there's no worries about ending up trying to graph the object set
+if that makes sense.
+
+SP> Yeah it does, thanks.  Sounds like a good move too.  So that means
+another table (px_object_graph or something), and cleaner code.
+
+
+-------------------------------------------------------------------------------
+Refactoring The API
+-------------------------------------------------------------------------------
+
+A more consistent interface:
+
+	$pixie->store( foo => $foo );
+	$pixie->fetch( 'foo' );
+	$pixie->remove( 'foo' );
+
+	$oid = $pixie->store( $bar );
+	$obj = $pixie->fetch( $oid );
+	$pixie->bind_name( 'bar' => $oid );
+	$obj = $pixie->fetch( 'bar' );
+	$pixie->unbind_name( 'bar' );
+	$pixie->remove( $oid );
+
+	$pixie->store( $baz );
+	$pixie->remove( $baz );
+
+	# allow user to specify what they're giving us:
+	$obj = $pixie->store( oid  => $oid );
+	$obj = $pixie->fetch( name => 'my_name' );
+	$pixie->remove( object => $object );
+	$pixie->remove( name   => 'foo' );
+	$pixie->remove( cookie => $cookie );
+
+SP> 'bind_name' is especially confusing for a newbie - I had
+the impression you had to insert an object, then call bind_name() for
+the longest time...  And it's return value is especially misleading -
+I assumed it was the oid of my object, and was surprised to find out
+it wasn't.  The user never needs to know about Pixie::Name objects,
+though I can see the use for this behaviour internally.  Fair enough,
+bind_name() doesn't have to go away - with the fetch() wrapper you don't
+need to worry about it anymore.
+
+
+-------------------------------------------------------------------------------
+Garbage Collection
+-------------------------------------------------------------------------------
+
+PC> I think the trick will be to load the entire graph into memory and
+then do GC from there, otherwise you're right, the database hit will
+be enormous. It's not going to cost any more memory than it does
+already though, because that's what we do at the moment.
+
+There may be a case for allowing two different GC techniques, one
+which does the trace with lots of db hits, and one which does it in
+memory. Also, once we have the graph table it should be possible to
+add tricks like generational collection and the like, if they prove
+to be of any use.
+
+SP> Hmm.. I don't know too much about GC algorithms, but to me it seems to
+be the kind of task you'd want another process/thread to do.
+
+PC> Well, yes. The catch is that GC needs to lock all other processes out
+of the database while it happens, so it needs to be as fast as
+possible.
+
+SP> Ah - therein lies a challenge...
+
+But I don't see why GC needs to lock everyone else out?  Surely, if an
+object's dead, it's dead -- nothing will be referencing it, so it
+should be safe to destroy it without worrying about mutex problems.
+And that should be the case even if you're not using ref counts.  The
+only problem I can think of that might crop up is that pixies might
+have out-dated object graphs, but if nothing references the objects
+that may have been deleted by GC, and pixies only update the parts of
+the graph that they change, then that shouldn't be a problem anyway.
+
+PC> Actually, you're right now I think about it. In a single transaction,
+grab a list of all the oids that are in Pixie and the graph
+associated with that and that set of data will be consistent so long
+as objects get inserted and attached to the rootset in an atomic
+fashion. Which is easily ensured.
+
+
+__
+EOF

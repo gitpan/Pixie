@@ -1,5 +1,3 @@
-package Pixie;
-
 =head1 NAME
 
 Pixie - The magic data pixie
@@ -8,18 +6,25 @@ Pixie - The magic data pixie
 
   use Pixie;
 
-  my $pixie = Pixie->new->connect('dbi:mysql:dbname=test', user => $user, pass => $pass);
+  my $pixie = Pixie->new->connect( 'memory' );
+  my $obj   = SomeObject->new;
 
-  # Save an object
-  my $cookie = $pixie->insert($some_object);
+  # Note: this API will be changing! See below for details.
 
-  undef($some_object);
+  # Store an object
+  my $cookie = $pixie->insert( $obj );
 
-  # Get it back
-  my $some_object = $pixie->get($cookie);
+  undef( $obj );
 
-  $pixie->bind_name( "Some Name" => $some_object );
-  my $result = $pixie->get_object_named( "Some Name" );
+  # Fetch it back
+  my $obj = $pixie->get( $cookie );
+
+  # Give it a name
+  $pixie->bind_name( "Some Name" => $obj );
+  my $obj2 = $pixie->get_object_named( "Some Name" );
+
+  # Delete it
+  $pixie->delete( $cookie ) || warn "eek!";
 
 =head1 DESCRIPTION
 
@@ -45,13 +50,13 @@ The inserted object is a blessed hash.
 
 The inserted object is a blessed array
 
-=item * 
+=item *
 
 The inserted object is 'complicit' with Pixie, see L<Pixie::Complicity>
 
 =back
 
-You'll note that we don't  include 'blessed arbitrary scalars' in  this
+You'll note that we don't  include 'blessed arbitrary scalars' in this
 list. This is because, during testing we found that the majority of
 objects that are represented as blessed scalars are often using XS to
 store extra data that Storable and Data::Dumper can't see, which leads
@@ -64,6 +69,8 @@ later on with that name.
 
 =cut
 
+package Pixie;
+
 use strict;
 use warnings::register;
 use Carp;
@@ -72,7 +79,7 @@ use Data::UUID;
 use Pixie::Proxy;
 use Data::Dumper;
 use Scalar::Util qw/ blessed reftype isweak /;
-									
+
 use Pixie::Store;
 use Pixie::ObjectInfo;
 use Pixie::ObjectGraph;
@@ -82,7 +89,7 @@ use Pixie::Complicity;
 
 use Pixie::LockStrat::Null;
 
-our $VERSION="2.06";
+our $VERSION="2.08_01";
 our $the_current_pixie;
 our $the_current_oid;
 our $the_current_lock_strategy;
@@ -228,7 +235,10 @@ sub do_dump_and_eval {
   {
     my $dump_warn;
     local $SIG{__WARN__} = sub { $dump_warn ||= join '', @_ };
-    $data_string = Dumper($thing);
+    # HACK: sometimes dumper fails dumping ObjectGraphs
+    # doing this twice reduces the probability of getting a 0-length string
+    $data_string   = Dumper($thing);
+    $data_string ||= Dumper($thing);
     die $dump_warn if $dump_warn;
     die "Something went wrong with the Dump" unless length($data_string);
   }
@@ -603,6 +613,119 @@ sub _px_extraction_thaw {
 }
 
 
+1;
+
+__END__
+
+=head1 AVAILABLE STORE TYPES
+
+At the time of writing the following stores were available:
+
+=over 4
+
+=item Memory
+
+  $pixie->connect( 'memory' );
+
+=item Berkeley DB
+
+  $pixie->connect( "bdb:$path_to_dbfile" );
+
+=item DBI
+
+See L<DBI> and individual DBD drivers for details on dbi's DSN specs.
+In general:
+
+  $pixie->connect( $dbi_spec, %args );
+
+For example:
+
+  $pixie->connect( "dbi:SQLite:dbname=$path_to_dbfile" );
+  $pixie->connect( 'dbi:mysql:dbname=test', user => 'foo', pass => 'bar' );
+  $pixie->connect( 'dbi:Pg:dbname=test;user=foo;pass=bar' );
+
+=back
+
+See L<Pixie::Store> and its sub-classes for more details on the available types
+of stores and the DSN specs to use.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item $px = Pixie->new
+
+Create a new Pixie.  You'll have to L<connect()> to a data store before you can
+really do anything.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item $px->connect( $dsn [, @args ] )
+
+Connect the pixie to a store specified by $dsn (data source name).  Note that
+you may need to initialize the store before connecting to it.
+
+=item $cookie = $px->insert( $object );
+
+Stores the C<$object> and returns a $cookie which you can use to retrieve the
+$object in the future.
+
+=item $obj = $px->get( $cookie )
+
+Get the object associated with $cookie from the pixie's store.
+
+=item $px->delete( $obj_or_cookie )
+
+Delete an object from the pixie's store given a $cookie, or the $object
+itself.
+
+=item $px->bind_name( $name => $object )
+
+Gives a $name to the $object you've specified, so that you can retrieve it
+in the future using L<get_object_named()>.
+
+Returns the cookie of the C<Pixie::Name> associated with the $object, though
+B<this usage is deprecated and will likely in the next release>.
+
+=item $obj = $px->get_object_named( $name )
+
+Gets the named object from the pixie's store.
+
+=item $bool = $px->unbind_name( $name )
+
+Stop associating $name with an object in the pixie's store.  This doesn't
+delete the object itself from the store (see L<delete()> for that).
+
+Returns true if the $name was unbound, false if not (ie: if it wasn't bound in
+the first place).
+
+=back
+
+=head1 PLANNED API CHANGES
+
+Some methods will be deprecated in the near future in an effort to create a
+more consistent API.  Here is an overview of the planned changes:
+
+=over 4
+
+=item $cookie = $px->store( [ $name => ] $object )
+
+This will replace L<insert()>, and will make naming objects easier.
+
+=item $obj = $px->fetch( $name || $cookie )
+
+This will replace L<get()> and L<get_object_named()>.
+
+=item $obj->remove( $obj || $cookie || $name )
+
+This will replace L<delete()> and L<unbind_name()>.
+
+=back
+
 =head1 SEE ALSO
 
 L<Pixie::Complicity> -- Sometimes Pixie can't make an object
@@ -626,11 +749,13 @@ want to write a new backend for pixie, start here.
 Jean Louis Leroy, author of Tangram, for letting us use ideas and code from
 the Tangram test suite.
 
-=head1 AUTHOR
+=head1 AUTHORS
 
 Pixie sprang from the mind of James Duncan <james@fotango.com>. Piers
 Cawley <pdcawley@bofh.org.uk> and Leon Brocard <acme@astray.org> are his
 co conspiritors.
+
+Steve Purkis <spurkis@cpan.org> is helping to maintain the module.
 
 =head1 COPYRIGHT
 
@@ -639,5 +764,3 @@ Copyright 2002 Fotango Ltd
 This software is released under the same license as Perl itself.
 
 =cut
-
-1;

@@ -30,8 +30,8 @@ CODE:
     mg = _find_mg(sv);
     if (mg) {
         // delete the old value
-        SvREFCNT_dec(mg->mg_obj);
         SvREFCNT_inc(info);
+        SvREFCNT_dec(mg->mg_obj);
         mg->mg_obj = info;
     } else {
         sv_magicext(sv, info, PIXIE_MAGIC_info, vtable, NULL, 0);

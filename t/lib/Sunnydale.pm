@@ -55,6 +55,8 @@ package Person;
 
 use base 'SunnydaleObject';
 
+our $VERSION='1'; # so use base doesn't autoload Person.pm
+
 sub as_string { die 'subclass responsibility' }
 
 sub name {

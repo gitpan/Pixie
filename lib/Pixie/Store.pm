@@ -1,3 +1,44 @@
+=head1 NAME
+
+Pixie::Store -- Abstract interface to physical storage
+
+=head1 SYNOPSIS
+
+In a deploy script:
+
+  use Pixie::Store::DBI;
+
+  # Setup the datastore.
+  Pixie::Store::DBI->deploy('dbi:mysql:dbname=foo',
+                            user => 'wibble',
+                            pass => 'plib',
+                            object_table => 'object');
+
+In a pixie client:
+
+  use Pixie::Store::MySubclass;
+  use Pixie;
+
+  my $pixie = Pixie->connect('prefix:myspec',
+                             user => 'bill',
+                             pass => 'flobadob');
+
+
+=head1 DESCRIPTION
+
+Pixie::Store provides pixie with an abstracted interface to the
+physical storage used to actually store the objects that Pixie
+manages. It is not a 'public' class; most Pixie users will never have
+to touch it except maybe to call the C<deploy> method of an
+appropriate subclass.
+
+However, if you want to add another storage medium to Pixie, start
+here. (If you want to add specific methods for storing in a particular
+RDBMS, you should take a look at L<DBIx::AnyDBD> before diving into
+Pixie::Store::DBI::Default and its woefully underdocumented friends.
+
+=cut
+
 package Pixie::Store;
 
 use strict;
@@ -145,51 +186,12 @@ sub DESTROY {
 
 __END__
 
-=head1 NAME
-
-Pixie::Store -- Abstract interface to physical storage
-
-=head1 SYNOPSIS
-
-In a deploy script:
-
-  use Pixie::Store::DBI;
-
-  # Setup the datastore.
-  Pixie::Store::DBI->deploy('dbi:mysql:dbname=foo',
-                            user => 'wibble',
-                            pass => 'plib',
-                            object_table => 'object');
-
-In a pixie client:
-
-  use Pixie::Store::MySubclass;
-  use Pixie;
-
-  my $pixie = Pixie->connect('prefix:myspec',
-                             user => 'bill',
-                             pass => 'flobadob');
-
-
-=head1 DESCRIPTION
-
-Pixie::Store provides pixie with an abstracted interface to the
-physical storage used to actually store the objects that Pixie
-manages. It is not a 'public' class; most Pixie users will never have
-to touch it except maybe to call the C<deploy> method of an
-appropriate subclass.
-
-However, if you want to add another storage medium to Pixie, start
-here. (If you want to add specific methods for storing in a particular
-RDBMS, you should take a look at L<DBIx::AnyDBD> before diving into
-Pixie::Store::DBI::Default and its woefully underdocumented friends.
-
 =head2 The Public Interface
 
 There is no public interface to Pixie::Store. However, where
 appropriate, Pixie::Store subclasses may implement a C<deploy> method
 which should be responsible for setting up a suitable storage
-structure which can be connected to later. 
+structure which can be connected to later.
 
 =head2 The Subclassable Interface
 

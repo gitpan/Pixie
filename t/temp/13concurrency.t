@@ -24,7 +24,6 @@ use Pixie::LockStrat::ReadOnly;
 my @specs = grep /^dbi:/, Common->test_stores;
 plan skip_all => "No Locking DBI stores specified" unless (@specs);
 plan tests => (50 * @specs);
-diag( "testing " . @specs . " dbi store(s). please be patient, this may take some time." );
 
 for my $spec (@specs) {
  SKIP: {

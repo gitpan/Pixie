@@ -13,10 +13,10 @@ use Test::Class;
 
 use Common;
 
-my @dsns = grep /^dbi:/, Common->test_stores;
-plan skip_all => "No DBI stores" unless (@dsns);
+my @specs = grep /^dbi:/, Common->test_stores;
+plan skip_all => "No DBI stores" unless (@specs);
 
-my @testers = grep defined, map TestDBI->new($_), @dsns;
+my @testers = grep defined, map TestDBI->new($_), Common->test_stores;
 Test::Class->runtests(@testers);
 
 
@@ -33,40 +33,40 @@ use base 'Test::Class';
 
 sub new {
   my $proto = shift;
-  my $self  = $proto->SUPER::new();
-  my $dsn   = shift;
+  my $self = $proto->SUPER::new();
+  my $spec = shift;
 
-  $self->{dsn} = $dsn;
+  $self->{spec} = $spec;
   return $self;
 }
 
 sub test_default : Test {
   my $self = shift;
-  ok(Pixie::Store::DBI->connect($self->{dsn}));
+  ok(Pixie::Store::DBI->connect($self->{spec}));
 }
 
 sub test_with_tablename : Test {
   my $self = shift;
-  ok my $p = Pixie::Store::DBI->connect($self->{dsn}, object_table => 'px_object');
+  ok my $p = Pixie::Store::DBI->connect($self->{spec}, object_table => 'px_object');
 }
 
 sub test_with_bad_tablename : Test {
   my $self = shift;
-  dies_ok {Pixie::Store::DBI->connect($self->{dsn}, object_table => 'nonexistent')}
+  dies_ok {Pixie::Store::DBI->connect($self->{spec}, object_table => 'nonexistent')}
 }
 
 sub test_deployment : Test(3) {
   my $self = shift;
   $self->test_with_bad_tablename or die "Nonexistent table already exists!";
   lives_ok {
-    Pixie::Store::DBI->deploy($self->{dsn},
+    Pixie::Store::DBI->deploy($self->{spec},
 			      object_table => 'nonexistent',
 			      lock_table => 'nonexistent2',
 			      rootset_table => 'nonexistent3',)}
     "Deployment";
   my $store;
   lives_ok {
-    $store = Pixie::Store::DBI->connect($self->{dsn},
+    $store = Pixie::Store::DBI->connect($self->{spec},
 					object_table => 'nonexistent',
 					lock_table => 'nonexistent2',
 				        rootset_table => 'nonexistent3',) }

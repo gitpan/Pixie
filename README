@@ -4,18 +4,25 @@ NAME
 SYNOPSIS
       use Pixie;
 
-      my $pixie = Pixie->new->connect('dbi:mysql:dbname=test', $user, $pass);
+      my $pixie = Pixie->new->connect( 'memory' );
+      my $obj   = SomeObject->new;
 
-      # Save an object
-      my $cookie = $pixie->insert($some_object);
+      # Note: this API will be changing! See below for details.
 
-      undef($some_object);
+      # Store an object
+      my $cookie = $pixie->insert( $obj );
 
-      # Get it back
-      my $some_object = $pixie->get($cookie);
+      undef( $obj );
 
-      $pixie->bind_name( "Some Name" => $some_object );
-      my $result = $pixie->get_object_named( "Some Name" );
+      # Fetch it back
+      my $obj = $pixie->get( $cookie );
+
+      # Give it a name
+      $pixie->bind_name( "Some Name" => $obj );
+      my $obj2 = $pixie->get_object_named( "Some Name" );
+
+      # Delete it
+      $pixie->delete( $cookie ) || warn "eek!";
 
 DESCRIPTION
     Pixie is yet another object persistence tool. The basic goal of Pixie is
@@ -30,31 +37,127 @@ DESCRIPTION
     slightly disingenuous. As far as Pixie is concerned 'any object' means
     'any object that satisfies any of these criteria':
 
-    *   The toplevel object is a blessed hash.
+    *   The inserted object is a blessed hash.
 
-    *   The toplevel object is a blessed array
+    *   The inserted object is a blessed array
 
-    Right now, Pixie can only save blessed hashes and blessed arrays, but it
-    should be possible to extend it to support 'bless arbitrary scalars'.
-    However, during testing we found that blessed arbitrary scalars were
-    often used with XS classes that stored extra data where Storable and
-    Data::Dumper could not see it, leading to all sorts of horrors on
-    restoration. So we turned that feature off pending a better approach.
-    Further more support for blessed regexes and blessed subroutine
-    references should be possible in the future with very little effort
-    required.
+    *   The inserted object is 'complicit' with Pixie, see Pixie::Complicity
+
+    You'll note that we don't include 'blessed arbitrary scalars' in this
+    list. This is because, during testing we found that the majority of
+    objects that are represented as blessed scalars are often using XS to
+    store extra data that Storable and Data::Dumper can't see, which leads
+    to all sorts of problems later. So, if you use a blessed scalar as your
+    object representation then you'll have to use the complicity features.
+    Sorry.
 
     Pixie can additionally be used to name objects in the store, and fetch
     them later on with that name.
+
+AVAILABLE STORE TYPES
+    At the time of writing the following stores were available:
+
+    Memory
+          $pixie->connect( 'memory' );
+
+    Berkeley DB
+          $pixie->connect( "bdb:$path_to_dbfile" );
+
+    DBI See DBI and individual DBD drivers for details on dbi's DSN specs.
+        In general:
+
+          $pixie->connect( $dbi_spec, %args );
+
+        For example:
+
+          $pixie->connect( "dbi:SQLite:dbname=$path_to_dbfile" );
+          $pixie->connect( 'dbi:mysql:dbname=test', user => 'foo', pass => 'bar' );
+          $pixie->connect( 'dbi:Pg:dbname=test;user=foo;pass=bar' );
+
+    See Pixie::Store and its sub-classes for more details on the available
+    types of stores and the DSN specs to use.
+
+CONSTRUCTOR
+    $px = Pixie->new
+        Create a new Pixie. You'll have to connect() to a data store before
+        you can really do anything.
+
+METHODS
+    $px->connect( $dsn [, @args ] )
+        Connect the pixie to a store specified by $dsn (data source name).
+        Note that you may need to initialize the store before connecting to
+        it.
+
+    $cookie = $px->insert( $object );
+        Stores the $object and returns a $cookie which you can use to
+        retrieve the $object in the future.
+
+    $obj = $px->get( $cookie )
+        Get the object associated with $cookie from the pixie's store.
+
+    $px->delete( $obj_or_cookie )
+        Delete an object from the pixie's store given a $cookie, or the
+        $object itself.
+
+    $px->bind_name( $name => $object )
+        Gives a $name to the $object you've specified, so that you can
+        retrieve it in the future using get_object_named().
+
+        Returns the cookie of the "Pixie::Name" associated with the $object,
+        though this usage is deprecated and will likely in the next release.
+
+    $obj = $px->get_object_named( $name )
+        Gets the named object from the pixie's store.
+
+    $bool = $px->unbind_name( $name )
+        Stop associating $name with an object in the pixie's store. This
+        doesn't delete the object itself from the store (see delete() for
+        that).
+
+        Returns true if the $name was unbound, false if not (ie: if it
+        wasn't bound in the first place).
+
+PLANNED API CHANGES
+    Some methods will be deprecated in the near future in an effort to
+    create a more consistent API. Here is an overview of the planned
+    changes:
+
+    $cookie = $px->store( [ $name => ] $object )
+        This will replace insert(), and will make naming objects easier.
+
+    $obj = $px->fetch( $name || $cookie )
+        This will replace get() and get_object_named().
+
+    $obj->remove( $obj || $cookie || $name )
+        This will replace delete() and unbind_name().
+
+SEE ALSO
+    Pixie::Complicity -- Sometimes Pixie can't make an object persistent
+    without help from the object's class. In that case you need to make the
+    class 'complicit' with Pixie. You'll typically need to do this with XS
+    based classes that use a simple scalar as their perl visible object
+    representation, or with closure based classes.
+
+    Pixie::FinalMethods -- There are some methods that Pixie requires to
+    behave in a particular way, not subject to the vagaries of overloading.
+    One option would be to write a bunch of private subroutines and methods
+    within Pixie, but very often it makes sense to move the behaviour onto
+    the objects being stored. Pixie::FinalMethods describes how we achieve
+    this.
+
+    Pixie::Store is the abstract interface to physical storage. If you want
+    to write a new backend for pixie, start here.
 
 WITH THANKS
     Jean Louis Leroy, author of Tangram, for letting us use ideas and code
     from the Tangram test suite.
 
-AUTHOR
+AUTHORS
     Pixie sprang from the mind of James Duncan <james@fotango.com>. Piers
     Cawley <pdcawley@bofh.org.uk> and Leon Brocard <acme@astray.org> are his
     co conspiritors.
+
+    Steve Purkis <spurkis@cpan.org> is helping to maintain the module.
 
 COPYRIGHT
     Copyright 2002 Fotango Ltd

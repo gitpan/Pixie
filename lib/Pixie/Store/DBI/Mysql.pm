@@ -1,9 +1,9 @@
-#  package Pixie::Store::DBI::Mysql;
+package Pixie::Store::DBI::Mysql;
 
-#  use Storable qw/nfreeze/;
-#  use Carp;
+use Storable qw/nfreeze/;
+use Carp;
 
-#  our $VERSION="2.06";
+our $VERSION="2.06";
 
 sub store_at {
   my $self = shift;
@@ -27,10 +27,17 @@ sub _add_to_rootset {
 
 sub begin_transaction {
   my $self = shift;
+
+  # reconnect as needed
+  #    -spurkis
+  eval { $self->verify_connection };
+  $self->reconnect if $@;
+
   my $has_lock =
     $self->selectrow_arrayref(q{SELECT GET_LOCK('pixie', 60)})
       ->[0];
   die "Couldn't lock pixie!" unless $has_lock;
+
   return $self;
 }
 
@@ -60,4 +67,5 @@ sub unlock_after_GC {
   my $self = shift;
   $self->commit;
 }
+
 1;

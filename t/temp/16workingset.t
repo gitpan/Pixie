@@ -8,13 +8,11 @@ use lib 't/lib';
 use blib;
 use strict;
 
-use Test::More;
 use Test::Class;
 
 use Common;
 
 my @specs   = grep !/memory/, Common->test_stores;
-plan skip_all => "no stores to test working sets against!" unless (@specs);
 my @testers = grep defined, map WorkingSetTest->new($_), @specs;
 Test::Class->runtests(@testers);
 

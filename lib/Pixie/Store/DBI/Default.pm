@@ -118,9 +118,18 @@ sub rootset_table {
 
 sub verify_connection {
   my $self = shift;
-  my $sth = $self->prepare_execute(qq{SELECT px_oid, px_flat_obj
-				      FROM $self->{object_table} LIMIT 1});
+  my $sth  = $self->prepare_execute(qq{SELECT px_oid} .
+				    qq{  FROM $self->{object_table} LIMIT 1});
   $sth->finish if $sth;
+
+  # This might be better - it doesn't require an eval and may be faster.
+  # Unfortunately it breaks test 11dbistore.t
+  #    -spurkis
+
+  #my $dbh  = $self->get_dbh;
+  #return $self if ($dbh && $dbh->ping);
+  #$self->reconnect;
+
   return $self;
 }
 
@@ -221,10 +230,18 @@ sub prepare_execute {
 
 sub begin_transaction {
   my $self = shift;
+
   $self->{tran_count} = 0 unless defined $self->{tran_count};
   $self->{tran_count}++;
 
+  # reconnect as needed
+  #    -spurkis
+  eval { $self->verify_connection };
+  $self->reconnect if $@;
+
   $self->get_dbh->{AutoCommit} = 0;
+
+  return $self;
 }
 
 sub rollback_db {
