@@ -23,7 +23,6 @@ sub new {
 
 sub set_up : Test(setup) {
   my $self = shift;
-#  $self->{pixie} = $self->connect;
   $self->connect->clear_storage;
   return $self;
 }
@@ -53,15 +52,15 @@ sub simple : Test(tests => 6) {
   $oid{Willow} = $willow->PIXIE::oid;
   undef $_ for $buffy, $willow;
 
-  is_deeply [$p->rootset], [$oid{Buffy}];
   is_deeply [$p->neighbours($oid{Buffy})], [$oid{Willow}];
+  is_deeply [$p->rootset], [$oid{Buffy}];
   is_deeply [ sort $p->live_set ], [ sort values %oid ];
 
   undef($p);
   $p = $self->connect;
 
-  is_deeply [$p->rootset], [$oid{Buffy}];
   is_deeply [$p->neighbours($oid{Buffy})], [$oid{Willow}];
+  is_deeply [$p->rootset], [$oid{Buffy}];
   is_deeply [ sort $p->live_set ], [ sort values %oid ];
 }
 
@@ -83,15 +82,14 @@ sub cycle : Test(6) {
     undef $_;
   }
 
-  is_deeply [ $p->rootset ],                  [ $oid{Willow} ];
   is_deeply [ $p->neighbours($oid{Willow}) ], [ $oid{Buffy} ];
+  is_deeply [ $p->rootset ],                  [ $oid{Willow} ];
   is_deeply [ sort $p->live_set ],         [ sort values %oid ];
 
   undef $p;
   $p = $self->connect;
-
-  is_deeply [ $p->rootset ],                  [ $oid{Willow} ];
   is_deeply [ $p->neighbours($oid{Willow}) ], [ $oid{Buffy} ];
+  is_deeply [ $p->rootset ],                  [ $oid{Willow} ];
   is_deeply [ sort $p->live_set ],         [ sort values %oid ];
 }
 
@@ -118,9 +116,10 @@ sub shared :Test(4) {
   undef $p;
   $p = $self->connect;
 
-  is_deeply [ sort $p->rootset ],               [ sort @oid{qw/Cordelia Faith/} ];
   is_deeply [ $p->neighbours($oid{Faith}) ],    [ $oid{Xander} ];
   is_deeply [ $p->neighbours($oid{Cordelia}) ], [ $oid{Xander} ];
+
+  is_deeply [ sort $p->rootset ],               [ sort @oid{qw/Cordelia Faith/} ];
   is_deeply [ sort $p->live_set ],              [ sort values %oid ];
 }
 
@@ -149,14 +148,12 @@ sub working_set_v_live_set : Test(7) {
   is_deeply [ $p->rootset ],          [ ];
   is_deeply [ sort $p->live_set ],    [ ];
   is_deeply [ sort $p->working_set ], [ $oid{Willow} ];
- 
 }
 
-  
 package main;
 
 my @specs;
-push @specs, 'bdb:objects.bdb' if $ENV{DEVELOPER_TESTS};
+push @specs, 'bdb:objects.bdb';
 push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if $ENV{PIXIE_TEST_STORES};
 
 my @testers = grep defined, map WorkingSetTest->new($_), @specs;

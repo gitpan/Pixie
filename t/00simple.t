@@ -34,19 +34,23 @@ package main;
 
 
 use Test::More;
+use Test::Exception;
 
 my @specs = qw/memory bdb:objects.bdb/;
 push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if $ENV{PIXIE_TEST_STORES};
 
-plan tests => 13 * @specs;
+plan tests => 18 * @specs;
 
 for my $store_spec (@specs) {
   SKIP: {
     my $p = eval {Pixie->new->connect($store_spec)};
+
     if ($@) {
       warn $@;
-      skip "Can't load $store_spec store", 13;
+      skip "Can't load $store_spec store", 18;
     }
+
+    like $p->as_string, qr/Pixie:.*$store_spec/ms;
 
     my $james = bless({
                        name     => 'James',
@@ -103,5 +107,10 @@ for my $store_spec (@specs) {
 
     $d->{official_birthday}->date($newtime);
     is $d->{official_birthday}->date, $d->{birthday}->date;
+
+    # Check we can save pixie itself;
+    my $pix_oid;
+    lives_ok { ok $pix_oid = $p->insert($p) };
+    lives_ok { is_deeply $p->get($pix_oid), $p };
   }
 }

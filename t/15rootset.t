@@ -12,6 +12,7 @@ use Sunnydale;
 
 sub Human::best_friend { $_[0]->{best_friend} }
 
+
 use base qw/Test::Class/;
 
 sub new {
@@ -42,7 +43,7 @@ sub simple : Test(2) {
 
   my $oid = $p->insert(Human->new(name => 'Buffy'));
 
-  is_deeply [ $p->rootset ], [ $oid ] or die;
+  is_deeply [ $p->rootset ], [ $oid ];
   $p->delete($oid);
   is_deeply [ $p->rootset ], [];
 }
@@ -60,7 +61,7 @@ sub naming : Test {
 package main;
 
 my @specs = 'memory';
-push @specs, 'bdb:objects.bdb' if $ENV{DEVELOPER_TESTS};
+push @specs, 'bdb:objects.bdb';
 push @specs, split / +/, $ENV{PIXIE_TEST_STORES} if $ENV{PIXIE_TEST_STORES};
 
 my @testers = grep defined, map RootTest->new($_), @specs;

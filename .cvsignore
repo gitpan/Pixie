@@ -5,7 +5,8 @@ __db.003
 __db.004
 __db.005
 blib
-log.0000000001
+log.*
 objects.bdb
 pm_to_blib
 test.slite
+Pixie-*

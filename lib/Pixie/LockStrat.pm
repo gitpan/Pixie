@@ -22,7 +22,12 @@ sub on_DESTROY {
   my $self = shift;
   local $@;
   my ($oid, $pixie) = @_;
-  eval { $pixie->store->unlock_object_for($oid, $pixie) };
+  $self->{on_DESTROY_called} = 1;
+  my $store = $pixie->store;
+  $store->unlock_object_for($oid, $pixie) if $store;
 }
 
+sub DESTROY {
+    warn "LockStrat destroyed" unless $_[0]->{on_DESTROY_called};
+}
 1;

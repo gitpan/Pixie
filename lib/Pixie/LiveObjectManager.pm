@@ -9,7 +9,7 @@ use base 'Pixie::Object';
 use Pixie::ObjectInfo;
 use Carp;
 
-our $VERSION='2.05';
+our $VERSION="2.06";
 
 use Scalar::Util qw/blessed weaken isweak/;
 
@@ -29,8 +29,7 @@ sub cache_insert {
   no warnings 'uninitialized';
   if ( length($oid) && ! defined($self->{_live_cache}{$oid}) ) {
     weaken($self->{_live_cache}{$oid} = $info);
-    $info->set_the_container($self->{_live_cache});
-    $info->set_lock_strategy(Pixie->get_the_current_lock_strategy);
+#    $info->set_lock_strategy(Pixie->get_the_current_lock_strategy);
   }
   return $oid => $obj;
 }
@@ -58,6 +57,11 @@ sub cache_delete {
 sub cache_size {
   my $self = shift;
   scalar keys %{$self->{_live_cache}};
+}
+
+sub cache_keys {
+    my $self = shift;
+    keys %{$self->{_live_cache}};
 }
 
 sub get_info_for {
@@ -89,6 +93,9 @@ sub bind_object_to_oid {
 
   $info->set_the_object($obj) unless defined($info->the_object);
   $info->set__oid($oid);
+  $info->set_pixie($self->{pixie});
+  $info->set_lock_strategy( Pixie->get_the_current_lock_strategy ||
+                            $self->{pixie}->lock_strategy );
   $obj->PIXIE::set_info($info);
 }
 
@@ -122,6 +129,9 @@ sub lock_strategy_for {
   my $oid = shift;
 
   my $info = $self->get_info_for($oid);
+  if (@_) {
+    $info->set_lock_strategy(@_);
+  }
   $info->lock_strategy;
 }
 

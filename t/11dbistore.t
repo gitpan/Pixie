@@ -51,9 +51,9 @@ sub test_deployment : Test(3) {
 					lock_table => 'nonexistent2',
 				        rootset_table => 'nonexistent3',) }
     "Connection";
-  eval {$store->{dbh}->do(q{DROP TABLE nonexistent})};
-  eval {$store->{dbh}->do(q{DROP TABLE nonexistent2})};
-  eval {$store->{dbh}->do(q{DROP TABLE nonexistent3})};
+  eval {$store->{dbh}->do(q{DROP TABLE nonexistent})}  || warn $@;
+  eval {$store->{dbh}->do(q{DROP TABLE nonexistent2})} || warn $@;
+  eval {$store->{dbh}->do(q{DROP TABLE nonexistent3})} || warn $@;
 }
 
 

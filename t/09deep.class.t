@@ -36,7 +36,7 @@ sub leak_test : Test(teardown => 2) {
 
 sub UNIVERSAL::px_is_managed {
   my $self = shift;
-  defined($self->PIXIE::get_info->the_container);
+  defined($self->PIXIE::get_info->pixie);
 }
 
 sub test_01 : Test(3) {
@@ -62,7 +62,8 @@ sub test_02 : Test(12) {
   my $p = $self->{pixie};
   my %OID = %{$self->{oid}};
 
-  ok my $buffy = $p->get($OID{Buffy}), "Fetched buffy";
+  ok my $buffy = $p->get($OID{Buffy}), "Fetched buffy"
+    or die $p->as_string, "Couldn't fetch Buffy";
   ok $buffy->px_is_managed;
   ok $buffy->best_friend->px_is_managed, "Proxies are managed";
   isa_ok($buffy->best_friend, 'Pixie::Proxy');
@@ -81,7 +82,8 @@ sub test_03 : Test(4) {
   my $p = $self->{pixie};
   my %OID = %{$self->{oid}};
 
-  ok my $buffy = $p->get($OID{Buffy}), "Fetched buffy again";
+  ok my $buffy = $p->get($OID{Buffy}), "Fetched buffy again"
+    or die "Couldn't fetch Buffy";
   ok $buffy->px_is_managed;
   # Save it again!
   ok $p->insert($buffy), 'Resave, lazily with proxies';

@@ -48,7 +48,7 @@ sub new {
 
 sub UNIVERSAL::px_is_managed {
   my $self = shift;
-  defined($self->PIXIE::get_info->the_container);
+  defined($self->PIXIE::get_info->pixie);
 }
 
 

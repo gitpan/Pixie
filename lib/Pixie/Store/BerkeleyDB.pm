@@ -4,7 +4,7 @@ use Storable qw/nfreeze thaw/;
 use BerkeleyDB;
 use File::Spec;
 
-our $VERSION='2.05';
+our $VERSION="2.06";
 
 use base qw/Pixie::Store/;
 
@@ -74,14 +74,14 @@ sub get_object_at {
   return thaw $val;
 }
 
-sub remove_from_store {
+sub _delete {
   my $self = shift;
   my($oid) = @_;
   my $val;
   my $db = $self->db;
   my $ret = $db->db_get($oid, $val) == 0;
   $db->db_del($oid);
-  return $ret;X
+  return $ret;
 }
 
 sub clear {
@@ -102,22 +102,58 @@ sub rollback { $_[0] }
 
 sub rootset {
   my $self = shift;
-  my @set = ($self->get_object_at('<NAME:PIXIE::rootset>') || {})->keys;
+  my @set = $self->_rootset_hash->keys;
   return @set;
+}
+
+sub _rootset_hash {
+  my $self = shift;
+  my $set = shift;
+  unless ($set = $self->get_object_at('<NAME:PIXIE::rootset>')) {
+    $set = Pixie::BDB::Rootset->new;
+  }
+  return $set;
+}
+
+sub db_keys {
+  my $self = shift;
+  my @keys;
+  my $cursor = $self->db->db_cursor;
+  my($k,$v) = ('','');
+  push @keys, $k while $cursor->c_get($k,$v, DB_NEXT) == 0;
+  return @keys;
 }
 
 sub working_set_for {
   my $self = shift;
-  my @set = grep !/^<NAME:PIXIE::/, keys %{$self->db};
-  wantarray ? @set : \@set;
+  my $pixie = shift;
+  my %set = map { $_ => undef } grep !/^<NAME:PIXIE::/, $self->db_keys;
+  delete $set{$self->object_graph_for($pixie)->PIXIE::oid};
+  wantarray ? keys %set : [keys %set];
 }
 
 sub _add_to_rootset {
   my $self = shift;
   my $oid = shift->PIXIE::oid;
-  my $set  = $self->get_object_at('<NAME:PIXIE::rootset>') || {};
-  $set->{oid} = 1;
+  my $set = $self->_rootset_hash;
+  $set->{$oid} = 1;
   $self->store_at('<NAME:PIXIE::rootset>' => $set);
   return $self;
 }
+
+sub remove_from_rootset {
+  my $self = shift;
+  my $oid = shift;
+  my $set = $self->_rootset_hash;
+  delete $set->{$oid};
+  $self->store_at('<NAME:PIXIE::rootset>' => $set);
+  return $self;
+}
+
+
+package Pixie::BDB::Rootset;
+
+sub new { bless {}, $_[0] }
+sub keys { keys %{$_[0]} }
+
 1;

@@ -2,7 +2,7 @@ package Pixie::Name;
 
 use strict;
 
-our $VERSION='2.05';
+our $VERSION="2.06";
 
 sub new {
   my $proto = shift;
@@ -43,7 +43,7 @@ sub do_restoration {
 sub get_object_from_with_strategy {
   my $proto = shift;
   my($name, $pixie, $strategy) = @_;
-  $proto->do_restoration($pixie->get_with_strategy("<NAME:$name>"));
+  $proto->do_restoration($pixie->get_with_strategy("<NAME:$name>", $strategy));
 }
 
 sub remove_name_from {

@@ -60,30 +60,30 @@ sub hierarchy_test : Test(18) {
   ok $angel->px_is_managed;
   ok $angel->sire->px_is_managed;
   undef($pixie);
-  # Angel will *stay* managed because Pixie hasn't yet been destroyed,
-  # the 'sire' proxy holds a reference to pixie;
-  ok !$angel->px_is_managed;
-  ok !$angel->sire->px_is_managed;
+  ok ! $angel->px_is_managed, 'Angel is no longer managed -- no proxies';
+  ok ! $angel->sire->px_is_managed, 'Nor is Darla';
   is $angel->sire->name, 'Darla';
   undef($angel);
   return "In memory store is not really persistent" if $self->{spec} eq 'memory';
+  # Angel will *stay* managed because Pixie hasn't yet been destroyed,
+  # the 'sire' proxy holds a reference to pixie;
   ok $pixie = $self->new_pixie;
   ok $angel = $pixie->get($oid);
   ok $angel->px_is_managed;
   ok $angel->sire->px_is_managed;
   isa_ok $angel->sire, 'Pixie::Proxy';
   undef($pixie);
-  ok $angel->px_is_managed;
-  ok $angel->sire->px_is_managed;
+  ok $angel->px_is_managed, 'Angel stays managed -- proxy extant';
+  ok $angel->sire->px_is_managed, 'Darla stays managed (is a proxy)';
   isa_ok $angel->sire, 'Pixie::Proxy';
-  is $angel->sire->name, 'Darla';
-  ok !$angel->px_is_managed;
-  ok !$angel->sire->px_is_managed;
+  is $angel->sire->name, 'Darla', 'Deferred fetch still works';
+  ok !$angel->px_is_managed, 'Angel no longer managed -- no proxies';
+  ok !$angel->sire->px_is_managed, 'Darla no longer managed -- no proxy';
 }
 
 sub UNIVERSAL::px_is_managed {
   my $self = shift;
-  defined($self->PIXIE::get_info->the_container);
+  defined($self->PIXIE::get_info->pixie);
 }
 
 package main;

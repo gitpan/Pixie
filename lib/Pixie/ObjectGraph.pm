@@ -22,9 +22,12 @@ sub neighbours {
   wantarray ? @retary : [@retary];
 }
 
-sub DESTROY {
+sub add_graph {
   my $self = shift;
-  $self->PIXIE::get_info->pixie->_insert($self);
+  my $other_graph = shift;
+
+  @{$self}{keys %$other_graph} = values %$other_graph;
+  return $self;
 }
 
 1;

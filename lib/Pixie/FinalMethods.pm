@@ -54,6 +54,11 @@ sub oid {
   $self->PIXIE::get_info->_oid;
 }
 
+sub managing_pixie {
+  get_info($_[0])->pixie;
+}
+
+
 sub get_info {
   my $self = shift;
   die "Can't get info about a ", ref($self) if $self->isa('Pixie::ObjectInfo');

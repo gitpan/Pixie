@@ -5,6 +5,7 @@ use Test::More;
 use Carp;
 
 sub leaktest {
+  local $TODO;
   is $SunnydaleObject::population, 0, "Leaktest";
   $SunnydaleObject::population = 0;
 }

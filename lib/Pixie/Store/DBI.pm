@@ -3,7 +3,7 @@ package Pixie::Store::DBI;
 use DBI;
 use DBIx::AnyDBD;
 
-our $VERSION='2.05';
+our $VERSION="2.06";
 
 use Pixie::Store::DBI::Default;
 sub connect { &Pixie::Store::DBI::Default::connect }

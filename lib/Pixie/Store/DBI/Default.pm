@@ -3,7 +3,7 @@ package Pixie::Store::DBI::Default;
 use strict;
 use Carp;
 
-our $VERSION='2.05';
+our $VERSION="2.06";
 
 use DBIx::AnyDBD;
 use Storable qw/nfreeze thaw/;
@@ -333,19 +333,22 @@ sub lock_object_for {
   unless ($lock_holder eq $pixie->_oid) {
     die "Cannot lock $oid for $pixie. Lock is held by ", $lock_holder;
   }
+  $self->SUPER::lock_object_for($oid, $pixie);
   return 1;
 }
 
 sub unlock_object_for {
   my $self = shift;
   my($oid, $pixie) = @_;
+  my $pixie_oid = ref($pixie) ? $pixie->_oid : $pixie;
   eval { $self->prepare_execute(q{DELETE FROM } . $self->lock_table .
                                 q{ WHERE px_oid = ? AND px_locker = ? },
-                                $oid, $pixie->_oid) };
-  die "Couldn't unlock $oid for $pixie: $@" if $@;
+                                $oid, $pixie_oid) };
+  die "Couldn't unlock $oid for $pixie_oid: $@" if $@;
   if ( my $other_locker = $self->locker_for($oid) ) {
     die "$oid is locked by another process: $other_locker";
   }
+  $self->SUPER::unlock_object_for($oid, $pixie);
   return 1;
 }
 
@@ -370,4 +373,17 @@ sub locker_for {
   }
 }
 
+sub release_all_locks {
+    my $self = shift;
+    # Ensure a connection
+    $self->{dbh} = &{$self->{reconnector}}
+        unless $self->{dbh};
+    $self->SUPER::release_all_locks;
+}
+
+sub DESTROY {
+    my $self = shift;
+    $self->release_all_locks;
+    $self->SUPER::DESTROY;
+}
 1;

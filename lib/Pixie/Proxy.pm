@@ -12,7 +12,7 @@ use Scalar::Util qw/reftype/;
 
 our $AUTOLOAD;
 
-our $VERSION='2.05';
+our $VERSION="2.06";
 
 use Pixie::Object;
 use Pixie::FinalMethods;
@@ -47,8 +47,7 @@ sub px_fetch_from {
 
   my $oid = $self->_oid;
 
-  $pixie->get_with_strategy($oid,
-			    $pixie->lock_strategy_for($oid));
+  $pixie->get_with_strategy($oid, $self->px_lock_strategy);
 }
 
 sub isa {
@@ -106,8 +105,9 @@ sub _px_extraction_thaw {
     return $ret;
   }
 
-  $pixie->lock_strategy_for($self,
-			    Pixie->get_the_current_lock_strategy);
+  $self->px_lock_strategy( $pixie->get_the_current_lock_strategy ||
+                           $pixie->lock_strategy );
+
 
   if ($self->px_class->px_is_immediate) {
     my $oid = $self->_oid;
@@ -190,6 +190,18 @@ sub px_clear_the_store {
   return $self;
 }
 
+sub px_lock_strategy {
+  my $self = shift;
+  if (@_) {
+    $self->[3] = shift;
+    return $self;
+  }
+  else {
+    return $self->[3];
+  }
+}
+
+
 package Pixie::Proxy::HASH;
 
 use base 'Pixie::Proxy';
@@ -253,7 +265,16 @@ sub px_clear_the_store {
   delete $self->{_the_store};
 }
 
-
+sub px_lock_strategy {
+  my $self = shift;
+  if (@_) {
+    $self->{_lock_strategy} = shift;
+    return $self;
+  }
+  else {
+    return $self->{_lock_strategy};
+  }
+}
 
 package Pixie::Proxy::Overloaded;
 

@@ -173,6 +173,7 @@ sub px_oid { $_[0]->PIXIE::oid };
 sub px_freeze { shift }
 sub px_thaw { shift }
 sub px_is_immediate { }
+sub px_in_rootset { 1 }
 
 sub px_as_rawstruct {
   my $self = shift;
@@ -194,6 +195,12 @@ sub px_empty_new {
   my $proto = shift;
   $proto->new;
 }
+
+sub px_do_final_restoration {
+  my $self = shift;
+  Pixie->get_the_current_pixie->make_new_object($self, ref($self));
+}
+
 
 # 'Internal' methods
 

@@ -8,7 +8,7 @@ Pixie - The magic data pixie
 
   use Pixie;
 
-  my $pixie = Pixie->new->connect('dbi:mysql:dbname=test', $user, $pass);
+  my $pixie = Pixie->new->connect('dbi:mysql:dbname=test', user => $user, pass => $pass);
 
   # Save an object
   my $cookie = $pixie->insert($some_object);
@@ -39,22 +39,25 @@ means 'any object that satisfies any of these criteria':
 
 =item *
 
-The toplevel object is a blessed hash.
+The inserted object is a blessed hash.
 
 =item *
 
-The toplevel object is a blessed array
+The inserted object is a blessed array
+
+=item * 
+
+The inserted object is 'complicit' with Pixie, see L<Pixie::Complicity>
 
 =back
 
-Right now, Pixie can only save blessed hashes and blessed arrays, but
-it should be possible to extend it to support 'bless arbitrary
-scalars'. However, during testing we found that blessed arbitrary
-scalars were often used with XS classes that stored extra data where
-Storable and Data::Dumper could not see it, leading to all sorts of
-horrors on restoration. So we turned that feature off pending a better
-approach.  Further more support for blessed regexes and blessed subroutine
-references should be possible in the future with very little effort required.
+You'll note that we don't  include 'blessed arbitrary scalars' in  this
+list. This is because, during testing we found that the majority of
+objects that are represented as blessed scalars are often using XS to
+store extra data that Storable and Data::Dumper can't see, which leads
+to all sorts of problems later. So, if you use a blessed scalar as
+your object representation then you'll have to use the complicity
+features. Sorry.
 
 Pixie can additionally be used to name objects in the store, and fetch them
 later on with that name.
@@ -79,13 +82,23 @@ use Pixie::Complicity;
 
 use Pixie::LockStrat::Null;
 
-our $VERSION='2.05';
+our $VERSION="2.06";
 our $the_current_pixie;
 our $the_current_oid;
 our $the_current_lock_strategy;
+our $the_current_object_graph;
 
 use base 'Pixie::Object';
 
+#use overload
+#  '""' => 'as_string';
+
+
+sub as_string {
+  my $self = shift;
+  my $str = ref($self) . ": " . $self->_oid . "\n";
+  $str .= "   " . $self->store->as_string . "\n" if $self->store;
+}
 
 #BEGIN { $Data::Dumper::Useperl = 1 }
 
@@ -103,6 +116,11 @@ sub get_the_current_oid {
 sub get_the_current_lock_strategy {
   return $the_current_lock_strategy;
 }
+
+sub get_the_current_object_graph {
+  return $the_current_object_graph;
+}
+
 
 sub init {
   my $self = shift;
@@ -125,13 +143,17 @@ sub clear_storage {
 
 sub store {
   my $self = shift;
-  my $s    = shift;
-  if (defined($s)) {
-    $self->{store} = $s;
+  if (@_) {
+    $self->{store} = shift;
     return $self;
   } else {
     return $self->{store};
   }
+}
+
+sub clear_store {
+    my $self = shift;
+    $self->{store} = undef;
 }
 
 sub lock_strategy {
@@ -262,9 +284,10 @@ sub insertion_thaw {
   my $retval = $self->store_individual_at($thing, $obj_holder->{oid});
 
   # Set up GC stuff
-  my $graph = $self->object_graph;
-  $graph->add_edge($thing_oid => $_) for
-    $self->proxied_content($obj_holder);
+  if (my $graph = Pixie->get_the_current_object_graph) {
+    $graph->add_edge($thing_oid => $_) for
+      $self->proxied_content($obj_holder);
+  }
   bless $thing, 'Class::Whitehole';
   return $retval;
 }
@@ -272,8 +295,15 @@ sub insertion_thaw {
 
 sub insert {
   my $self = shift;
-  my $ret = eval { $self->_insert(@_) };
+  my $graph = Pixie::ObjectGraph->new;
+
+  my $ret = eval {
+    local $the_current_object_graph = $graph;
+    $self->_insert(@_)
+  };
   $self->bail_out($@) if $@;
+  $self->_insert($self->object_graph->add_graph($graph))
+    unless $_[0]->isa('Pixie::ObjectGraph');
   $self->add_to_rootset(@_);
   return $ret;
 }
@@ -364,7 +394,7 @@ sub extraction_thaw {
   my $oid   = Pixie->get_the_current_oid;
   $thing = $thing->px_thaw;
 
-  my $real_obj = $self->make_new_object($thing, ref($thing));
+  my $real_obj = $thing->px_do_final_restoration;
 
   bless $thing, 'Class::Whitehole' unless
     $thing->PIXIE::address == $real_obj->PIXIE::address;
@@ -374,7 +404,6 @@ sub extraction_thaw {
   $self->cache_insert($real_obj);
   return $real_obj;
 }
-
 
 sub make_new_object {
   my $self = shift;
@@ -432,6 +461,11 @@ sub cache_delete {
   $self->{_objectmanager}->cache_delete(@_) if defined $self->{_objectmanager};
 }
 
+sub get_cached_keys {
+  my $self = shift;
+  $self->{_objectmanager}->cache_keys;
+}
+
 # The naming section
 
 sub bind_name {
@@ -468,7 +502,7 @@ sub rootset {
 
 sub add_to_rootset {
   my $self = shift;
-  $self->store->add_to_rootset(@_);
+  $self->store->add_to_rootset($_) for grep $_->px_in_rootset, @_ ;
   return $self;
 }
 
@@ -484,6 +518,8 @@ sub proxied_content {
 
   local %Pixie::neighbours;
 
+  # Turn off deepcopy or things get *very* slow.
+  local $Data::Dumper::Deepcopy = 0;
   local $Data::Dumper::Freezer = 'Pixie::proxy_finder';
   local $Data::Dumper::Toaster = undef;
   Data::Dumper::DumperX($obj_holder);
@@ -494,6 +530,18 @@ sub neighbours {
   my $self = shift;
   my $oid = shift;
   $self->object_graph->neighbours($oid);
+}
+
+
+sub run_GC {
+  my $self = shift;
+  $self->store->lock_for_GC;
+  my %live = map { $_ => 1 } $self->live_set;
+  for ($self->working_set) {
+    $self->delete($_) unless $live{$_};
+  }
+  $self->store->unlock_after_GC;
+  return $self;
 }
 
 sub live_set {
@@ -540,8 +588,20 @@ sub unlock_object {
 
 sub DESTROY {
   my $self = shift;
+  $self->store->release_all_locks if defined $self->store;
   delete $self->{_objectmanager};
 }
+
+sub px_freeze {
+  my $self = shift;
+  return bless {}, ref($self);
+}
+
+sub _px_extraction_thaw {
+  my $self = shift;
+  $self->get_the_current_pixie;
+}
+
 
 =head1 SEE ALSO
 

@@ -2,7 +2,7 @@ package Pixie::ObjectInfo;
 
 use strict;
 
-our $VERSION='2.05';
+our $VERSION="2.06";
 
 use Scalar::Util qw/weaken/;
 
@@ -63,21 +63,8 @@ sub the_object {
   $self->{the_object};
 }
 
-sub set_the_container {
-  my $self = shift;
-  croak "We already have a pixie!" if defined($self->{the_container});
-  weaken($self->{the_container} = shift);
-  return $self;
-}
-
-sub the_container {
-  my $self = shift;
-  $self->{the_container};
-}
-
 sub set_lock_strategy {
   my $self = shift;
-  croak "We already have a lock strategy!" if defined($self->{lock_strat});
   $self->{lock_strat} = shift;
   return $self;
 }
@@ -108,10 +95,10 @@ sub px_insertion_thaw { shift }
 sub DESTROY {
   my $self = shift;
   local $@; # Protect $@
-  if (defined($self->{the_container})) {
-    delete $self->{the_container}{$self->_oid};
-    $self->{lock_strat}->on_DESTROY(scalar($self->_oid), $self->{pixie}) if
-      ($self->{lock_strat} && $self->{pixie});
+  if ($self->{pixie}) {
+    $self->{pixie}->cache_delete($self->_oid);
+    ($self->{lock_strat} ||= Pixie::LockStrat::Null->new)
+        ->on_DESTROY(scalar($self->_oid), $self->{pixie});
   }
 }
 

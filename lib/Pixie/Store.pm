@@ -1,14 +1,34 @@
 package Pixie::Store;
 
 use strict;
-our $VERSION='2.05';
+our $VERSION="2.06";
 my %typemap = ( memory => 'Pixie::Store::Memory',
                 bdb => 'Pixie::Store::BerkeleyDB',
                 dbi => 'Pixie::Store::DBI', );
 
+use Scalar::Util qw/weaken/;
+use Carp;
+
+#use overload
+#  '""' => 'as_string';
+
+sub as_string {
+  my $proto = shift;
+  my $str;
+  if (ref $proto) {
+    $str .= ref($proto);
+    $str .= ": $proto->{spec}" if $proto->{spec};
+  }
+  else {
+    $str .= $proto;
+  }
+  return $str;
+}
+
 sub connect {
   my $proto = shift;
-  my($type, $path) = split(':', shift, 2);
+  my $spec = shift;
+  my($type, $path) = split(':', $spec, 2);
 
   $type = lc($type);
   die "Invalid database spec" unless exists $typemap{$type};
@@ -16,7 +36,9 @@ sub connect {
   eval "require " . $typemap{$type};
   die $@ if $@;
 
-  $typemap{$type}->connect($path,@_);
+  my $self = $typemap{$type}->connect($path,@_);
+  $self->{spec} = $spec;
+  return $self;
 }
 
 sub object_graph_for {
@@ -42,9 +64,32 @@ sub remove_from_store {
 
 # Low level locking
 
-sub lock_object_for {}
+sub locked_set {
+    my $self = shift;
+    return $self->{locked_set} ||= {};
+}
 
-sub unlock_object_for {}
+sub lock_object_for {
+    my $self = shift;
+    my($oid, $locker) = @_;
+    $self->locked_set->{ $oid } = $locker->_oid;
+    return 1;
+}
+
+sub unlock_object_for {
+    my $self = shift;
+    my $oid = shift;
+    delete $self->locked_set->{$oid};
+}
+
+sub release_all_locks {
+    my $self = shift;
+    my $locked_set = $self->locked_set;
+    $self->unlock_object_for(@$_)
+        for map {[$_ => $locked_set->{$_}]}
+            keys %$locked_set;
+    return $self;
+}
 
 sub add_to_rootset {
   my $self = shift;
@@ -73,11 +118,27 @@ sub lock     { $_[0]->subclass_responsibility(@_) }
 sub unlock   { $_[0]->subclass_responsibility(@_) }
 sub rollback { $_[0]->subclass_responsibility(@_) }
 
+
+sub lock_for_GC {
+  my $self = shift;
+  $self->lock;
+}
+
+sub unlock_after_GC {
+  my $self = shift;
+  $self->unlock;
+}
+
 sub subclass_responsibility {
   my $self = shift;
   require Carp;
   Carp::carp( (caller(1))[3], " not implemented for ", ref($self) );
   return wantarray ? @_ : $_[-1];
+}
+
+sub DESTROY {
+    my $self = shift;
+    $self->release_all_locks;
 }
 
 1;

@@ -1,9 +1,9 @@
-package Pixie::Store::DBI::Mysql;
+#  package Pixie::Store::DBI::Mysql;
 
-use Storable qw/nfreeze/;
-use Carp;
+#  use Storable qw/nfreeze/;
+#  use Carp;
 
-our $VERSION='2.05';
+#  our $VERSION="2.06";
 
 sub store_at {
   my $self = shift;
@@ -25,13 +25,39 @@ sub _add_to_rootset {
   return $self;
 }
 
-sub begin_transaction { }
+sub begin_transaction {
+  my $self = shift;
+  my $has_lock =
+    $self->selectrow_arrayref(q{SELECT GET_LOCK('pixie', 60)})
+      ->[0];
+  die "Couldn't lock pixie!" unless $has_lock;
+  return $self;
+}
 
 sub rollback_db {
   my $self = shift;
-  $self->unlock;
-  Carp::confess "Something bad happened, and we can't roll back: $@";
+  my $err = $@;
+  $self->do(q{SELECT RELEASE_LOCK('pixie')});
+  Carp::confess "Something bad happened, and we can't roll back: $err";
 }
-sub commit { }
 
+sub commit {
+  my $self = shift;
+  $self->do(q{SELECT RELEASE_LOCK('pixie')});
+  return $self;
+}
+
+sub lock_for_GC {
+  my $self = shift;
+  my $has_lock =
+    $self->selectrow_arrayref(q{SELECT GET_LOCK('pixie', 600)})
+      ->[0];
+  die "Couldn't get GC lock" unless $has_lock;
+  return $self;
+}
+
+sub unlock_after_GC {
+  my $self = shift;
+  $self->commit;
+}
 1;
