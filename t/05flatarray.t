@@ -45,7 +45,7 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     {
       my $storage = $store;
       my $homer = $storage->get($homer_oid);
-      is $storage->oid($homer), $homer_oid;
+      is $homer->PIXIE::oid, $homer_oid;
       is_deeply $homer->{interests}, ['beer', 'food'];
       $homer = undef;
     }
@@ -55,7 +55,7 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     {
       my $storage = $store;
       my $homer = $storage->get($homer_oid);
-      is $storage->oid($homer), $homer_oid;
+      is $homer->PIXIE::oid, $homer_oid;
 	
       push @{ $homer->{interests} }, 'sex';
       $storage->insert($homer);
@@ -67,7 +67,7 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     {
       my $storage = $store;
       my $homer = $storage->get($homer_oid);
-      is $storage->oid($homer), $homer_oid;
+      is $homer->PIXIE::oid, $homer_oid;
 
       is_deeply $homer->{interests}, ['beer', 'food', 'sex'];
 
@@ -81,7 +81,7 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     {
       my $storage = $store;
       my $homer = $storage->get($homer_oid);
-      is $storage->oid($homer), $homer_oid;
+      is $homer->PIXIE::oid, $homer_oid;
 
       is_deeply $homer->{interests}, ['beer', 'food'];
 
@@ -96,7 +96,7 @@ for my $store_spec (qw/memory bdb:objects.bdb dbi:mysql:dbname=test/) {
     {
       my $storage = $store;
       my $homer = $storage->get($homer_oid);
-      is $storage->oid($homer), $homer_oid;
+      is $homer->PIXIE::oid, $homer_oid;
 
       is_deeply $homer->{interests}, ['sex', 'beer', 'food'];
 	

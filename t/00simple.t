@@ -62,7 +62,7 @@ for my $store_spec (qw/memory dbi:mysql:dbname=test bdb:objects.bdb/) {
     my %oid;
     $oid{james} = $p->insert( $james );
     $oid{piers} = $p->insert( $piers );
-    $oid{james_bday} = $p->oid( $james->birthday );
+    $oid{james_bday} = $james->birthday->PIXIE::oid;
     $james = undef;
     $piers = undef;
     ok my $pdc = $p->get($oid{piers});
@@ -73,7 +73,7 @@ for my $store_spec (qw/memory dbi:mysql:dbname=test bdb:objects.bdb/) {
     my $result = $p->delete($oid{piers});
     ok defined($result) && $result == 0;
     my $b = $p->get( $oid{james} )->{birthday};
-    is $p->oid($b), $oid{james_bday};
+    is $b->PIXIE::oid, $oid{james_bday};
     my $newtime = scalar( localtime( time() ) );
     $b->date( $newtime );
     is $p->insert( $b ), $oid{james_bday};

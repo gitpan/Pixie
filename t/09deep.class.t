@@ -34,6 +34,11 @@ sub leak_test : Test(teardown => 2) {
   is $self->{pixie}->cache_size, 0, "Cache Leak";
 }
 
+sub UNIVERSAL::px_is_managed {
+  my $self = shift;
+  defined($self->PIXIE::get_info->the_container);
+}
+
 sub test_01 : Test(3) {
   my $self = shift;
   my $p = $self->{pixie};
@@ -88,7 +93,7 @@ sub test_03 : Test(4) {
 package main;
 
 my @testers = grep defined, map DeepTest->new($_),
-		      qw/memory bdb:objects.bdb/;
+		      qw/memory dbi:mysql:dbname=test bdb:objects.bdb/;
 Test::Class->runtests(@testers);
 
 

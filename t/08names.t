@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 129;
+use Test::More tests => 72;
 
 use lib 't';
 use blib;
@@ -25,7 +25,7 @@ sub run_tests {
 
     if ($@) {
 #      warn $@;
-      skip "Can't load $store_spec store", 43;
+      skip "Can't load $store_spec store", 24;
     }
     $pixie->store->clear;
 
@@ -35,16 +35,13 @@ sub run_tests {
       my $buffy = Human->new(first_name => 'Buffy',
                               name => 'Summers');
       ok $OID{Buffy} = $pixie->insert($buffy);
-      ok $buffy->px_is_managed;
       ok $pixie->bind_name('The Slayer' => $buffy);
     }
     Sunnydale::leaktest;
 
     {
       ok defined(my $buffy1 = $pixie->get_object_named('The Slayer'));
-      ok $buffy1->px_is_managed;
       ok defined(my $buffy2 = $pixie->get($OID{Buffy}));
-      ok $buffy2->px_is_managed;
       isa_ok $buffy1, 'Human';
       isa_ok $buffy2, 'Human';
       $buffy1->{is_slayer} = 1;
@@ -57,10 +54,8 @@ sub run_tests {
     {
       my $angel = Vampire->new(name => 'Angel',
                                has_soul => 1,);
-      ok ! $angel->px_is_managed;
       ok my $name = $pixie->bind_name('The Vampire with a Soul' =>
                                       $angel);
-      ok $angel->px_is_managed;
       push @{$angel->{aka}}, $name;
       $pixie->insert($angel);
     }
@@ -76,10 +71,8 @@ sub run_tests {
       my $anya = Human->new(name => 'Anya');
 
       my $tara = Human->new(name => 'Tara');
-      ok ! $_->px_is_managed for ($willow, $xander, $anya, $tara);
       $scooby_name = $pixie->bind_name('The Scooby Gang' =>
                         $willow, $xander, $anya, $tara);
-      ok $_->px_is_managed for ($willow, $xander, $anya, $tara);
     }
     Sunnydale::leaktest;
 
@@ -87,7 +80,6 @@ sub run_tests {
     {
       my @scoobies = $pixie->get_object_named('The Scooby Gang');
       is scalar(@scoobies), 4;
-      ok $_->px_is_managed for @scoobies;
     }
     Sunnydale::leaktest;
 
@@ -101,7 +93,6 @@ sub run_tests {
     {
       my $buffy = $pixie->get_object_named('The Slayer');
       ok defined $buffy;
-      ok $buffy->px_is_managed;
       ok $pixie->unbind_name('The Slayer');
       my $should_be_undef = $pixie->get_object_named('The Slayer');
       is $should_be_undef, undef;
@@ -112,7 +103,6 @@ sub run_tests {
     {
       my $buffy = $pixie->get($OID{Buffy});
       ok defined $buffy;
-      ok $buffy->px_is_managed;
       isa_ok $buffy, 'Human';
     }
     Sunnydale::leaktest;

@@ -12,7 +12,7 @@ sub leaktest {
 package SunnydaleObject;
 use Data::UUID;
 
-our $population;
+our $population = 0;
 
 use overload '""' => 'as_string';
 
@@ -92,22 +92,12 @@ sub has_soul {
   my $self = shift;
 
   if (@_) {
-    $self->has_soul = shift;
+    $self->{has_soul} = shift;
     return $self;
   }
   else {
     return $self->{has_soul};
   }
-}
-
-package Human;
-
-use base 'IndividualPerson';
-
-sub defaults {
-  my $proto = shift;
-
-  return( $proto->SUPER::defaults, has_soul => 1 );
 }
 
 sub first_name {
@@ -120,6 +110,16 @@ sub first_name {
   else {
     return $self->{first_name};
   }
+}
+
+package Human;
+
+use base 'IndividualPerson';
+
+sub defaults {
+  my $proto = shift;
+
+  return( $proto->SUPER::defaults, has_soul => 1 );
 }
 
 package Vampire;

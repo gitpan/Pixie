@@ -19,17 +19,31 @@ hook to allow objects to 'assist' with their own serialization (or to
 allow us to add our own special cases for CPAN modules that we know
 about...) 
 
+Current thinking on this front means we'll offer a pair of methods,
+'px_freeze' and 'px_thaw'; These methods can be used to create and
+restore from 'memento' objects. For instance, say you have a class
+which stores its 'real' data in a C language structure, one could do:
+
+
+   sub Set::Object::px_freeze {
+       my $set = shift;
+       return bless [ $set->members ], 'Set::Object::Memento';
+   }
+
+   sub Set::Object::Memento::px_thaw {
+       my $memento = shift;
+       return Set::Object->new(@$memento);
+   }
 
 For deferred loading to work, we assume that nothing but the object's
 own methods get to access the object's contents directly. ie,
 everything but the object uses accessor methods. Deferred loading is
 implemented using AUTOLOAD.
 
-We also assume that objects won't have a 'meaningful' class method
+We also assume that objects won't have a 'meaningful' px_class method
 that returns anything other than the name of the class of which the
-object is an instance. (There are other Pixie::Proxy methods... maybe
-we should think about giving them outlandish names to try and prevent
-symbol clash...)
+object is an instance. See the Namespace Assumptions at the bottom of
+this document for other uses of px_* methods.
 
 We currently assume that we have database around called
 dbi:mysql:dbname=test, and further that it has an 'object' table that
@@ -43,7 +57,6 @@ CREATE TABLE object (
 
 Patches to Makefile.PL to allow this to be got as a query are, of
 course, welcome.
-
 
 If you are going to supply your own OID, please don't generate lazily;
 things get very confused if you do.
@@ -62,5 +75,24 @@ that if they change in a more complex fashion between runs, then a
 where Widget is a class name. (note that this is pseudo code, not yet
 sure how it'd 'really' look, I just need the basic functionality
 somewhere for stuff I'm working on).
+
+Namespace Assumptions
+=====================
+
+Methods that match /^px_/ 'belong' to pixie, and it's fair game to
+insert such methods in UNIVERSAL. (Hell, I've seen a persistence
+framework for Smalltalk that inserts its own methods into 'Object',
+which is the root of (almost) all objects, and 'Behaviour', which is
+the class that the 'Class' class inherits from, and everywhere else in
+the Object tree for that matter, trust us, we're being restrained
+here...).
+
+The PIXIE::* namespace is reserved for methods that we write for *all*
+objects, and which can't be overridden. Right now, about the only
+method in there is 'PIXIE::address', which returns the address of a
+data structure in memory. It's only any use as an object id which is
+unique to the process, you can't get pointers back (more's the pity),
+but it's vital for the workings of Pixie::LiveObjectManager that it
+doesn't get trashed.
 
 

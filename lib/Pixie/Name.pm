@@ -2,7 +2,7 @@ package Pixie::Name;
 
 use strict;
 
-our $VERSION = '2.03';
+our $VERSION = '2.04';
 
 sub new {
   my $proto = shift;
@@ -13,7 +13,7 @@ sub name_object_in {
   my $proto = shift;
   my($name,$obj,$pixie) = @_;
   $pixie->insert($proto->new->_oid("<NAME:$name>")
-                 ->target($obj));
+                 ->px_target($obj));
 }
 
 sub get_object_from {
@@ -21,13 +21,13 @@ sub get_object_from {
   my($name, $pixie) = @_;
   my $name_obj  = $pixie->get("<NAME:$name>");
   return unless $name_obj;
-  my $target = $name_obj->target;
+  my $target = $name_obj->px_target;
   if (wantarray) {
-    return map { eval { $_->restore } || $_ } @$target;
+    return map { eval { $_->px_restore } || $_ } @$target;
   }
   else {
     if ($target->[-1]->isa('Pixie::Proxy')) {
-      return $target->[-1]->restore;
+      return $target->[-1]->px_restore;
     } else { return $target->[-1]; }
   }
 }
@@ -50,7 +50,7 @@ sub _oid {
   }
 }
 
-sub target {
+sub px_target {
   my $self = shift;
   if (@_) {
     $self->{target} = shift;

@@ -2,7 +2,7 @@ package Pixie::Object;
 
 use strict;
 
-our $VERSION = '2.03';
+our $VERSION = '2.04';
 
 sub new {
   my $proto = shift;
@@ -13,5 +13,4 @@ sub new {
 
 sub init { $_[0]; }
 
-sub real_class { ref($_[0]) }
 1;

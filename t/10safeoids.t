@@ -35,7 +35,7 @@ sub basic : Test(6) {
   undef $easy;
   $easy = $p->get($oid);
   ok $easy->px_is_managed;
-  is $p->oid($easy), $oid;
+  is $easy->PIXIE::oid, $oid;
   is_deeply $easy, $easy_copy;
 }
 
@@ -45,6 +45,13 @@ sub new {
   my $proto = shift;
   bless [ @_ ], $proto;
 }
+
+sub UNIVERSAL::px_is_managed {
+  my $self = shift;
+  defined($self->PIXIE::get_info->the_container);
+}
+
+
 
 package main;
 

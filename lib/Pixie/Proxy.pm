@@ -8,17 +8,18 @@ require overload;
 # array based objects. This may not remain the case.
 
 
-use Scalar::Util qw/reftype weaken/;
+use Scalar::Util qw/reftype/;
 
 our $AUTOLOAD;
 
-our $VERSION = '2.03';
+our $VERSION = '2.04';
 
 use Pixie::Object;
-use Pixie::ManagedObject;
-use base 'Pixie::Object', 'Pixie::ManagedObject';
+use Pixie::FinalMethods;
+use Pixie::Complicity;
+use base 'Pixie::Object';
 
-sub make_proxy {
+sub px_make_proxy {
   my $self = shift;
   my($oid, $obj) = @_;
   my $proxied_class = ref($obj);
@@ -26,112 +27,114 @@ sub make_proxy {
 
   $real_class .= '::Overloaded' if overload::Overloaded($proxied_class);
   $real_class->new->_oid($oid)
-                  ->class($proxied_class);
+                  ->px_class($proxied_class);
 }
 
-sub restore {
-  my $class = $_[0]->class;
-  my $pixie = $_[0]->the_store;
-  $_[0]->clear_the_store;
-  my $real_obj = $_[0]->fetch_from($pixie);
+sub px_restore {
+  my $class = $_[0]->px_class;
+  my $pixie = $_[0]->px_the_store;
+  $_[0]->px_clear_the_store;
+  my $real_obj = $_[0]->px_fetch_from($pixie);
   return $_[0] = undef unless defined $real_obj;
-  $real_obj = $pixie->rebless_into_shadow_class($real_obj);
-  $real_obj->_PIXIE_dont_do_real_DEST(1);
   $_[0]->populate_from($real_obj);
-  bless $_[0], ref($real_obj);
+  bless $real_obj, 'Class::Whitehole';
+  my $ret = bless $_[0], $class;
 }
 
-sub fetch_from {
+sub px_fetch_from {
   my $self = shift;
   my $pixie = shift;
 
-  local $pixie->cache->{$self->_oid};
-  $pixie->get($self->_oid);
+  my $oid = $self->_oid;
+
+  $pixie->get_with_strategy($oid,
+			    $pixie->lock_strategy_for($oid));
 }
 
 sub isa {
   my $self = shift;
   my($class) = @_;
-  $self->UNVERSAL::isa($class) || ref($self) && $self->class->isa($class);
+  $self->UNIVERSAL::isa($class) || ref($self) && $self->px_class->isa($class);
 }
-
-sub px_is_not_proxiable { 1 }
 
 sub can {
   my $self = shift;
   my($method) = @_;
 
   $self->UNIVERSAL::can($method) ||
-      ref($self) && $self->restore->can($method);
+      ref($self) && $self->px_restore->can($method);
 }
 
-
-{
-  my %store_hash;
-  sub the_store {
-    my $self = shift;
-    my $key = $self->_oid;
-    if (@_) {
-      $store_hash{$key} = shift;
-      weaken $store_hash{$key};
-      return $self;
-    }
-    else {
-      return $store_hash{$key};
-    }
-  }
-
-  sub clear_the_store {
-    my $self = shift;
-    delete $store_hash{$self->_oid};
-  }
-}
 
 sub STORABLE_freeze {
   my $self = shift;
   my $cloning = shift;
   return if $cloning;
 
-  return $self->_oid, [$self->class];
+  return $self->_oid, [$self->px_class];
 }
 
 sub STORABLE_thaw {
   my($target, $cloning, $oid, $class) = @_;
   return if $cloning;
   $target->_oid($oid);
-  $target->class($class->[0]);
+  $target->px_class($class->[0]);
   return $target;
 }
 
-sub insertion_thaw { my $self = shift }
-
-sub px_extraction_thaw {
+sub _px_insertion_thaw {
   my $self = shift;
-  my $ret = $Pixie::the_current_pixie->cache_get($self->_oid);
+  $self->px_the_store(Pixie->get_the_current_pixie);
+  return $self;
+}
+
+sub _px_insertion_freeze {
+  my $self = shift;
+  my $dupe = ref($self)->new->_oid($self->_oid)
+                            ->px_class($self->px_class);
+}
+
+
+
+sub _px_extraction_thaw {
+  my $self = shift;
+  my $pixie = Pixie->get_the_current_pixie($self->_oid);
+  my $ret = Pixie->get_the_current_pixie->cache_get($self->_oid);
   if ( defined $ret ) {
     bless $self, 'Class::Whitehole';
-    $Pixie::the_current_pixie->forget_about($self);
+    $pixie->forget_about($self);
     return $ret;
   }
+
+  $pixie->lock_strategy_for($self,
+			    Pixie->get_the_current_lock_strategy);
+
+  if ($self->px_class->px_is_immediate) {
+    my $oid = $self->_oid;
+    bless $self, 'Class::Whitehole';
+    Pixie->get_the_current_pixie->_get($oid);
+  }
   else {
-    $self->the_store($Pixie::the_current_pixie);
-    $Pixie::the_current_pixie->cache_insert($self);
+    $self->px_the_store($pixie);
+    $pixie->cache_insert($self);
     return $self;
   }
 }
 
 sub DESTROY {
   my $self = shift;
+  local $@ = $@;
   return unless ref $self;
-  my $store = $self->the_store;
-#  return if $Pixie::Proxy::NOCACHEFLUSH;
-  $store->forget_about($self) if defined $store;
+  my $store = $self->px_the_store;
+  if (defined $store) {
+    $store->forget_about($self);
+  }
 }
 
 sub AUTOLOAD {
   my $method = $AUTOLOAD;
   $method =~ s/.*:://;
-  $_[0]->restore->$method(@_[1..$#_]);
+  $_[0]->px_restore->$method(@_[1..$#_]);
 }
 
 package Pixie::Proxy::ARRAY;
@@ -154,7 +157,7 @@ sub _oid {
   }
 }
 
-sub class {
+sub px_class {
   my $self = shift;
   if (@_) {
     $self->[1] = shift;
@@ -168,6 +171,23 @@ sub populate_from {
   $#{$_[0]} = 0;
   @{$_[0]} = @{$_[1]};
   return $_[0];
+}
+
+sub px_the_store {
+  my $self = shift;
+  if (@_) {
+    $self->[2] = shift;
+    return $self;
+  }
+  else {
+    return $self->[2];
+  }
+}
+
+sub px_clear_the_store {
+  my $self = shift;
+  $self->[2] = undef;
+  return $self;
 }
 
 package Pixie::Proxy::HASH;
@@ -191,7 +211,10 @@ sub _oid {
   }
 }
 
-sub class {
+
+sub px_oid { $_[0]->_oid }
+
+sub px_class {
   my $self = shift;
 
   if (@_) {
@@ -214,6 +237,24 @@ sub populate_from {
   return $_[0];
 }
 
+sub px_the_store {
+  my $self = shift;
+  if (@_) {
+    $self->{_the_store} = shift;
+    return $self;
+  }
+  else {
+    return $self->{_the_store};
+  }
+}
+
+sub px_clear_the_store {
+  my $self = shift;
+  delete $self->{_the_store};
+}
+
+
+
 package Pixie::Proxy::Overloaded;
 
 my %FALLBACK = ( '!' => \&bool_not,
@@ -229,10 +270,10 @@ use overload
     nomethod => sub {
       no strict 'refs';
       my $method = pop;
-      my $class = $_[0]->class;
+      my $class = $_[0]->px_class;
       my $fb = $ {$class . "::()"};
       if ( my $sub = overload::ov_method( overload::mycan($class, "\($method"), $class) ) {
-        $_[0]->restore;
+        $_[0]->px_restore;
         &$sub;
       }
       elsif (!defined($fb) || $fb) {
@@ -259,7 +300,7 @@ sub bool_not {
     return;
   }
   else {
-    $_[0]->restore;
+    $_[0]->px_restore;
     return ! $_[0];
   }
 }
@@ -269,7 +310,7 @@ sub bool {
     return 1;
   }
   else {
-    $_[0]->restore;
+    $_[0]->px_restore;
     return $_[0];
   }
 }

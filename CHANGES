@@ -1,3 +1,9 @@
+2.04
+	- made note of the fact that Pixie requires Perl 5.8.0 in
+	  the Makefile.PL
+        - does not use $Data::Dumper::Bless, uses $Data::Dumper::Toaster
+	  and Freezer for everything.
+
 2.03
 	- fixed installation problems
 	- fixed t/09deep.class.t to make sure it didn't die when
@@ -18,11 +24,13 @@
         - Pixie::Proxy objects can now be saved. Don't ask why they
           couldn't. Please.
         - Separated the 'simple' store from the storage manager portion of 
-          Pixie, so we now have Pixie and Pixie::Store::*. The store is responsible 
+          Pixie, so we now have Pixie and Pixie::Store::*. The store is
+	  responsible 
           simply for saving and fetching 'simple' objects from the store, and 
           provides for locking, unlocking and rolling back the store. But these 
           don't guarantee anything yet. 
-        - Pixie now calls lock/unlock in its 'insert/get' methods before handing off
+        - Pixie now calls lock/unlock in its 'insert/get' methods before
+	  handing off
           to the more 'primitive' methods.
         - insert/get now use a 'cache' to avoid storing/fetching
           objects multiple times in a single transaction. Should be
