@@ -1,5 +1,7 @@
 package Pixie::Store::Memory;
 
+our $VERSION = '2.01';
+
 use Storable qw/nfreeze thaw/;
 
 use base qw/Pixie::Store/;

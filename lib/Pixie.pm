@@ -73,7 +73,7 @@ use Scalar::Util qw/ blessed weaken /;
 
 use Pixie::Store;
 
-our $VERSION = '2.00';
+our $VERSION = '2.01';
 
 sub new {
   my $class = shift;

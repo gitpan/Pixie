@@ -2,6 +2,8 @@ package Pixie::Store::DBI::Mysql;
 
 use Storable qw/nfreeze/;
 
+our $VERSION = '2.01';
+
 sub store_at {
   my $self = shift;
   my($oid, $obj) = @_;

@@ -8,5 +8,6 @@ WriteMakefile (
 		   Scalar::Util      => 0.01,
 		   Test::Simple      => 0.01,
 		   DBIx::AnyDBD      => 0,
+		   Data::UUID        => 0.01,
 		  },
 );

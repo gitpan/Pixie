@@ -2,6 +2,8 @@ package Pixie::Name;
 
 use strict;
 
+our $VERSION = '2.01';
+
 sub new {
   my $proto = shift;
   return bless {}, $proto;

@@ -6,6 +6,8 @@ no warnings "redefine";
 
 use Data::Dumper;
 
+our $VERSION = '2.01';
+
 sub new {
   my $class = shift;
   my $self  = {};

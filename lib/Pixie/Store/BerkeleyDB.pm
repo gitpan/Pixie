@@ -4,6 +4,8 @@ use Storable qw/nfreeze thaw/;
 use BerkeleyDB;
 use File::Spec;
 
+our $VERSION = '2.01';
+
 use base qw/Pixie::Store/;
 
 sub new {

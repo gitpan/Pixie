@@ -12,6 +12,8 @@ use Scalar::Util qw/reftype weaken/;
 
 our $AUTOLOAD;
 
+our $VERSION = '2.01';
+
 sub new {
   my $proto = shift;
   my $self = {};
