@@ -1,0 +1,67 @@
+We assume that:
+
+If a class has a method called 'new' then 'new' is a constructor that
+can be meaningfully called with no arguments.
+
+If an object is restored simply using Storable, then calling DESTROY
+on that object would do more harm than good. The thinking behind this
+is that the object didn't get properly initialized, so DESTROY could
+well go messing with class structures that are best left alone.
+Usually this is right; remember that you don't need to worry about
+breaking circular references; this is handled by the Pixie::Proxy
+approach.
+
+If an object isn't a HASH and doesn't have an '_oid' method, then just
+Storable::nfreezing the object 'in place' will not cause any great
+damage. This is a dangerous assumption (as I found to my cost when
+playing with Set::Object). We should look at providing some kind of
+hook to allow objects to 'assist' with their own serialization (or to
+allow us to add our own special cases for CPAN modules that we know
+about...) 
+
+
+For deferred loading to work, we assume that nothing but the object's
+own methods get to access the object's contents directly. ie,
+everything but the object uses accessor methods. Deferred loading is
+implemented using AUTOLOAD.
+
+We also assume that objects won't have a 'meaningful' class method
+that returns anything other than the name of the class of which the
+object is an instance. (There are other Pixie::Proxy methods... maybe
+we should think about giving them outlandish names to try and prevent
+symbol clash...)
+
+We currently assume that we have database around called
+dbi:mysql:dbname=test, and further that it has an 'object' table that
+looks something like:
+
+CREATE TABLE object (
+  oid varchar(255) NOT NULL default '',
+  flat_obj blob NOT NULL,
+  PRIMARY KEY  (oid)
+)
+
+Patches to Makefile.PL to allow this to be got as a query are, of
+course, welcome.
+
+
+If you are going to supply your own OID, please don't generate lazily;
+things get very confused if you do.
+
+
+
+* TENTATIVE ASSUMPTIONS *
+
+I'm thinking of adding the assumption that class hierarchies aren't
+going to change except at the 'leaf' while programs are running. And
+that if they change in a more complex fashion between runs, then a
+'reindex' will be required. This is so we can support things like
+
+    get all objects where object.isa('Widget');
+
+where Widget is a class name. (note that this is pseudo code, not yet
+sure how it'd 'really' look, I just need the basic functionality
+somewhere for stuff I'm working on).
+
+
+

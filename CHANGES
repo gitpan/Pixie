@@ -1,0 +1,23 @@
+2.00 
+	- rewrite of orginal pixie idea to make it a little more intelligent
+	- pdcawley added hundreds of useful changes
+        - Pixie::Proxy objects now do deferred loading by default.
+        - Pixie::Proxy works with hash and array based objects
+        - Pixie::Proxy works in the presence of overloaded objects
+        - Pixie::Proxy objects can now be saved. Don't ask why they
+          couldn't. Please.
+        - Separated the 'simple' store from the storage manager portion of 
+          Pixie, so we now have Pixie and Pixie::Store::*. The store is responsible 
+          simply for saving and fetching 'simple' objects from the store, and 
+          provides for locking, unlocking and rolling back the store. But these 
+          don't guarantee anything yet. 
+        - Pixie now calls lock/unlock in its 'insert/get' methods before handing off
+          to the more 'primitive' methods.
+        - insert/get now use a 'cache' to avoid storing/fetching
+          objects multiple times in a single transaction. Should be
+          possible to extend this to use a single, unified cache.
+        - Introduced 'Pixie::Name' objects, allowing for the
+          naming/labelling of objects with 'well known' names. These
+          look a little like Pixie::Proxy objects, and are generally
+          not visible to the user, who uses Pixie's name related
+          methods to manipulate names.

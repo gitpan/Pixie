@@ -1,0 +1,99 @@
+#!perl -w
+
+use lib '../lib';
+
+use Pixie;
+use Data::Dumper;
+
+package My::Time::Date;
+
+sub new {
+  my $class = shift;
+  my $self = {};
+  bless $self, $class;
+}
+
+sub date {
+  my $self = shift;
+  my $date = shift;
+  if (defined($date)) {
+    $self->{date} = $date;
+    return $self;
+  } else {
+    return $self->{date};
+  }
+}
+
+
+package Person;
+
+sub birthday { $_[0]->{birthday} }
+
+package main;
+
+use Test::More tests => 33;
+
+
+for my $store_spec (qw/memory dbi:mysql:dbname=test bdb:objects.bdb/) {
+  SKIP: {
+    my $p = eval {Pixie->new->connect($store_spec)};
+    if ($@) {
+      warn $@;
+      skip "Can't load $store_spec store", 11;
+    }
+
+    my $james = bless({
+                       name     => 'James',
+                       age      => '22',
+                       birthday => My::Time::Date->new()->date( '27/05/1979' ),
+                      }, 'Person'
+                     );
+
+    my $piers = bless(
+                      {
+                       name     => 'Piers',
+                       age      => '34',
+                       birthday => My::Time::Date->new()->date( '15/09/1967' ),
+                       coding_pair => $james,
+                      }, 'Person'
+                     );
+
+    my $i = 0;
+    my %oid;
+    $oid{james} = $p->insert( $james );
+    $oid{piers} = $p->insert( $piers );
+    $james = undef;
+    $piers = undef;
+    ok my $pdc = $p->get($oid{piers});
+    is $pdc->{coding_pair}->birthday->date, '27/05/1979';
+    undef($pdc);
+    ok $p->delete($oid{piers});
+    ok !defined($p->get($oid{piers}));
+    my $result = $p->delete($oid{piers});
+    ok defined($result) && $result == 0;
+    my $b = $p->get( $oid{james} )->{birthday};
+    my $newtime = scalar( localtime( time() ) );
+    $b->date( $newtime );
+    $p->insert( $b );
+    $b = undef;
+    my $c = $p->get( $oid{james} );
+    ok($c->{birthday}->date() eq $newtime, "time is right ($newtime)");
+
+    my $d = bless {
+                   name => 'James', age => '22',
+                   birthday => $c->{birthday}, official_birthday => $c->{birthday},
+                  };
+
+    ok $oid{d} = $p->insert($d);
+    $d = undef;
+
+    ok $d = $p->get($oid{d});
+
+    is $d->{birthday}->date, $c->{birthday}->date;
+    is $d->{official_birthday}->date, $d->{birthday}->date;
+    $newtime = localtime(time);
+
+    $d->{official_birthday}->date($newtime);
+    is $d->{official_birthday}->date, $d->{birthday}->date;
+  }
+}
